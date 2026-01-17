@@ -191,4 +191,6 @@
     "total_price": "Total Price",
     "fetch_user_data_error": "Failed to fetch user data: {{error}}",
     "error_loading_appointments": "Error loading appointments",
-    "please_select_opening_and_closing_times": "Please select opening and closing times"}
+    "please_select_opening_and_closing_times": "Please select opening and closing times",
+    "not_applicable": "N/A",
+    "subscription_ends_prefix": "Subscription ends:"}

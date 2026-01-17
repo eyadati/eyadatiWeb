@@ -191,4 +191,6 @@
     "total_price": "Prix total",
     "fetch_user_data_error": "Échec de la récupération des données utilisateur : {{error}}",
     "error_loading_appointments": "Erreur lors du chargement des rendez-vous",
-    "please_select_opening_and_closing_times": "Veuillez sélectionner les heures d'ouverture et de fermeture"}
+    "please_select_opening_and_closing_times": "Veuillez sélectionner les heures d'ouverture et de fermeture",
+    "not_applicable": "N/A",
+    "subscription_ends_prefix": "Fin d'abonnement :"}

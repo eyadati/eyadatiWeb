@@ -190,6 +190,7 @@
     "number_of_doctors": "عدد الأطباء",
     "total_price": "السعر الإجمالي",
     "fetch_user_data_error": "فشل في جلب بيانات المستخدم: {{error}}",
-    "error_loading_appointments": "خطأ في تحميل المواعيد",
-    "please_select_opening_and_closing_times": "الرجاء تحديد أوقات الفتح والإغلاق"
-}
+        "error_loading_appointments": "خطأ في تحميل المواعيد",
+        "please_select_opening_and_closing_times": "الرجاء تحديد أوقات الفتح والإغلاق",
+        "not_applicable": "غير متوفر",
+        "subscription_ends_prefix": "نهاية الاشتراك:"}

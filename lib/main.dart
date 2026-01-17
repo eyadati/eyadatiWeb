@@ -195,7 +195,7 @@ class _EyadatiAppState extends State<EyadatiApp> {
     final data = message.data;
     final String type = data['type'] ?? '';
     final String status = data['status'] ?? '';
-    final String subscriptionEndDate = data['subscriptionEndDate'] ?? 'N/A';
+    final String subscriptionEndDate = data['subscriptionEndDate'] ?? 'not_applicable'.tr();
     final String title = message.notification?.title ?? 'Notification';
     final String body = message.notification?.body ?? '';
 
@@ -214,7 +214,7 @@ class _EyadatiAppState extends State<EyadatiApp> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      'subscription_ends: ${subscriptionEndDate.tr()}',
+                      'subscription_ends_prefix'.tr() + ' ${subscriptionEndDate.tr()}',
                     ),
                   ),
               ],

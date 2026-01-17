@@ -4,6 +4,7 @@
 
 1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
+3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
@@ -43,27 +44,7 @@ All tasks follow a strict lifecycle:
    - Add dated note explaining the change
    - Resume implementation
 
-8. **Commit Code Changes:**
-   - Stage all code changes related to the task.
-   - Propose a clear, concise commit message e.g, `feat(ui): Create basic HTML structure for calculator`.
-   - Perform the commit.
 
-9. **Attach Task Summary with Git Notes:**
-   - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`).
-   - **Step 9.2: Draft Note Content:** Create a detailed summary for the completed task. This should include the task name, a summary of changes, a list of all created/modified files, and the core "why" for the change.
-   - **Step 9.3: Attach Note:** Use the `git notes` command to attach the summary to the commit.
-     ```bash
-     # The note content from the previous step is passed via the -m flag.
-     git notes add -m "<note content>" <commit_hash>
-     ```
-
-10. **Get and Record Task Commit SHA:**
-    - **Step 10.1: Update Plan:** Read `plan.md`, find the line for the completed task, update its status from `[~]` to `[x]`, and append the first 7 characters of the *just-completed commit's* commit hash.
-    - **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
-
-11. **Commit Plan Update:**
-    - **Action:** Stage the modified `plan.md` file.
-    - **Action:** Commit this change with a descriptive message (e.g., `conductor(plan): Mark task 'Create user model' as complete`).
 
 ### Phase Completion Verification and Checkpointing Protocol
 
@@ -113,6 +94,20 @@ All tasks follow a strict lifecycle:
 5.  **Await Explicit User Feedback:**
     -   After presenting the detailed plan, ask the user for confirmation: "**Does this meet your expectations? Please confirm with yes or provide feedback on what needs to be changed.**"
     -   **PAUSE** and await the user's response. Do not proceed without an explicit yes or confirmation.
+
+5.1. **Commit All Phase Changes:**
+   - Stage all code changes related to the phase.
+   - Propose a clear, concise commit message e.g, `feat(auth): Implement user authentication phase`.
+   - Perform the commit.
+
+5.2. **Attach Phase Summary with Git Notes:**
+   - **Step 5.2.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`).
+   - **Step 5.2.2: Draft Note Content:** Create a detailed summary for the completed phase. This should include the phase name, a summary of changes, a list of all created/modified files, and the core "why" for the changes within the phase.
+   - **Step 5.2.3: Attach Note:** Use the `git notes` command to attach the summary to the commit.
+     ```bash
+     # The note content from the previous step is passed via the -m flag.
+     git notes add -m "<note content>" <commit_hash>
+     ```
 
 6.  **Create Checkpoint Commit:**
     -   Stage all changes. If no changes occurred in this step, proceed with an empty commit.
