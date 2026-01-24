@@ -10,6 +10,7 @@ import 'package:marquee/marquee.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
 
 // Represents a combined appointment and its associated clinic data
 class AppointmentWithClinic {
@@ -25,6 +26,7 @@ class UserAppointmentsProvider extends ChangeNotifier {
   final FirebaseFirestore firestore;
   final UserFirestore _userFirestore;
   final NotificationService _notificationService;
+  final ConnectivityService? _connectivityService;
 
   StreamSubscription? _appointmentsSubscription;
 
@@ -35,16 +37,42 @@ class UserAppointmentsProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
+  // Implement lastSyncTimestamp getter
+  Future<DateTime?> get lastSyncTimestamp {
+    final userId = auth.currentUser?.uid;
+    if (userId == null) return Future.value(null);
+    return _userFirestore.getLastSyncTimestamp(userId);
+  }
+
   UserAppointmentsProvider({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     UserFirestore? userFirestore,
     NotificationService? notificationService,
+    ConnectivityService? connectivityService,
   })  : auth = auth ?? FirebaseAuth.instance,
         firestore = firestore ?? FirebaseFirestore.instance,
-        _userFirestore = userFirestore ?? UserFirestore(),
-        _notificationService = notificationService ?? NotificationService() {
+        _userFirestore = userFirestore ?? UserFirestore(connectivityService: connectivityService),
+        _notificationService = notificationService ?? NotificationService(),
+        _connectivityService = connectivityService {
     _initAppointmentsStream();
+
+    _connectivityService?.addListener(_onConnectivityChanged);
+  }
+
+  void _onConnectivityChanged() {
+    if (_connectivityService?.isOnline == true) {
+      // If reconnected and data might be stale (e.g., from cache), refresh
+      _checkAndRefreshDataOnReconnect();
+    }
+  }
+
+  Future<void> _checkAndRefreshDataOnReconnect() async {
+    final lastSync = await lastSyncTimestamp;
+    if (lastSync != null &&
+        DateTime.now().difference(lastSync).inMinutes > 5) {
+      refresh();
+    }
   }
 
   void _initAppointmentsStream() {
@@ -68,9 +96,16 @@ class UserAppointmentsProvider extends ChangeNotifier {
         .where("date", isGreaterThan: Timestamp.fromDate(DateTime.now()))
         .orderBy("date")
         .limit(15)
-        .snapshots();
+        .snapshots(includeMetadataChanges: true);
 
     _appointmentsSubscription = stream.listen((snapshot) async {
+      // Implement checks for metadata changes
+      if (snapshot.metadata.isFromCache) {
+        debugPrint("UserAppointments: Data from cache.");
+      }
+      if (snapshot.metadata.hasPendingWrites) {
+        debugPrint("UserAppointments: Data has pending writes (local changes).");
+      }
       final appointmentDocs = snapshot.docs;
       if (appointmentDocs.isEmpty) {
         _appointments = [];
@@ -149,6 +184,7 @@ class UserAppointmentsProvider extends ChangeNotifier {
   @override
   void dispose() {
     _appointmentsSubscription?.cancel();
+    _connectivityService?.removeListener(_onConnectivityChanged);
     super.dispose();
   }
 }
@@ -160,12 +196,51 @@ class Appointmentslistview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // The provider is created in `userAppointments.dart`
-    return const _AppointmentsListView();
+    return ChangeNotifierProvider(
+      create: (context) => UserAppointmentsProvider(
+        connectivityService: Provider.of<ConnectivityService>(context, listen: false),
+      ),
+      child: const _AppointmentsListView(),
+    );
   }
 }
 
-class _AppointmentsListView extends StatelessWidget {
+class _AppointmentsListView extends StatefulWidget {
   const _AppointmentsListView();
+
+  @override
+  State<_AppointmentsListView> createState() => _AppointmentsListViewState();
+}
+
+class _AppointmentsListViewState extends State<_AppointmentsListView>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkAndRefreshData();
+    }
+  }
+
+  Future<void> _checkAndRefreshData() async {
+    final provider = context.read<UserAppointmentsProvider>();
+    final lastSync = await provider.lastSyncTimestamp;
+    if (lastSync != null &&
+        DateTime.now().difference(lastSync).inMinutes > 5) {
+      provider.refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -176,37 +251,69 @@ class _AppointmentsListView extends StatelessWidget {
         }
 
         if (provider.appointments.isEmpty) {
-          return Center(child: Text('no_appointments'.tr()));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('no_appointments'.tr()),
+                // Display last sync timestamp here
+                FutureBuilder<DateTime?>(
+                  future: provider.lastSyncTimestamp,
+                  builder: (context, timestampSnapshot) {
+                    if (timestampSnapshot.connectionState == ConnectionState.waiting) {
+                      return const SizedBox.shrink();
+                    }
+                    if (timestampSnapshot.hasData && timestampSnapshot.data != null) {
+                      final formattedTime = DateFormat.yMd(context.locale.toString()).add_Hms().format(timestampSnapshot.data!);
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'last_synced_at'.tr(args: [formattedTime]),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          );
         }
 
         final appointments = provider.appointments;
 
-        return ListView.builder(
-          itemCount: appointments.length + 1, // Add 1 for the SizedBox
-          itemBuilder: (context, index) {
-            if (index == appointments.length) {
-              return SizedBox(
-                height: 92 + MediaQuery.of(context).padding.bottom,
-              ); // Adjust height for floating nav bar
-            }
-            final appointmentWithClinic = appointments[index];
-            final slot =
-                appointmentWithClinic.appointment["date"] as Timestamp?;
+        return RefreshIndicator(
+          onRefresh: provider.refresh, // Connect to the refresh method
+          child: ListView.builder(
+            itemCount: appointments.length + 1, // Add 1 for the SizedBox
+            itemBuilder: (context, index) {
+              if (index == appointments.length) {
+                return SizedBox(
+                  height: 92 + MediaQuery.of(context).padding.bottom,
+                ); // Adjust height for floating nav bar
+              }
+              final appointmentWithClinic = appointments[index];
+              final slot =
+                  appointmentWithClinic.appointment["date"] as Timestamp?;
 
-            if (slot == null) return const SizedBox.shrink();
+              if (slot == null) return const SizedBox.shrink();
 
-            return _AppointmentCard(
-              appointment: appointmentWithClinic.appointment,
-              clinicData: appointmentWithClinic.clinic,
-              slot: slot,
-            );
-          },
+              return _AppointmentCard(
+                appointment: appointmentWithClinic.appointment,
+                clinicData: appointmentWithClinic.clinic,
+                slot: slot,
+              );
+            },
+          ),
         );
       },
     );
   }
 }
-
 class _AppointmentCard extends StatelessWidget {
   final Map<String, dynamic> appointment;
   final Map<String, dynamic> clinicData;
@@ -218,16 +325,16 @@ class _AppointmentCard extends StatelessWidget {
     required this.slot,
   });
 
-  String _formatDate(Timestamp ts) {
+  String _formatDateWithContext(Timestamp ts, BuildContext context) {
     final date = ts.toDate();
-    final weekday = DateFormat('EEEE').format(date);
-    final formatted = DateFormat('M/d/yyyy').format(date);
+    final weekday = DateFormat('EEEE', context.locale.toString()).format(date);
+    final formatted = DateFormat('M/d/yyyy', context.locale.toString()).format(date);
     return "$weekday $formatted";
   }
 
-  String _formatTime(Timestamp ts) {
+  String _formatTimeWithContext(Timestamp ts, BuildContext context) {
     final date = ts.toDate();
-    return DateFormat('hh:mm a').format(date);
+    return DateFormat('hh:mm a', context.locale.toString()).format(date);
   }
 
   @override
@@ -272,12 +379,12 @@ class _AppointmentCard extends StatelessWidget {
             children: [
               _buildMarqueeRow("address".tr(), address),
               const SizedBox(height: 4),
-              Text(_formatDate(slot), style: const TextStyle(fontSize: 14)),
+              Text(_formatDateWithContext(slot, context), style: const TextStyle(fontSize: 14)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _formatTime(slot),
+                    _formatTimeWithContext(slot, context),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (mapsLink != null && mapsLink.isNotEmpty)

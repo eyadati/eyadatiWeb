@@ -3,10 +3,26 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 class UserFirestore {
   final user = FirebaseAuth.instance.currentUser;
   final collection = FirebaseFirestore.instance.collection("users");
+  final ConnectivityService? _connectivityService; // Add ConnectivityService
+
+  UserFirestore({ConnectivityService? connectivityService})
+    : _connectivityService = connectivityService; // Initialize it
+
+  Future<DateTime?> getLastSyncTimestamp(String userUid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final timestampString = prefs.getString('last_sync_user_$userUid');
+    if (timestampString != null) {
+      return DateTime.parse(timestampString);
+    }
+    return null;
+  }
+
   Future<void> addUser(String name, String phone, String city) async {
     final fcm = await FirebaseMessaging.instance.getToken();
     collection.doc(user?.uid).set({
@@ -64,13 +80,22 @@ class UserFirestore {
     if (confirmed != true) return;
 
     try {
-      // Get appointment to find user UID
+      // Check network connectivity before forcing server read
+      if (!(_connectivityService?.isOnline == true)) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('no_internet_connection'.tr())),
+        );
+        return;
+      }
+
+      // Get appointment to find clinic UID - FORCE SERVER READ
       final appointmentDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userUid)
           .collection('appointments')
           .doc(appointmentId)
-          .get(GetOptions(source: Source.cache));
+          .get(GetOptions(source: Source.server)); // Changed to Source.server
 
       if (!appointmentDoc.exists) {
         throw Exception('appointment_not_found'.tr());

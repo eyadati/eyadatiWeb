@@ -17,13 +17,9 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
   String? _errorMessage;
   int _doctorCount = 1;
   double _price = 4000;
-
-  //TODO: Replace with your actual Chargily API keys. These are test keys and might be expired.
-  // Using test keys will result in a 401 Unauthorized error if they are expired.
-  // Get your API keys from your Chargily dashboard.
   final client = ChargilyClient(
     ChargilyConfig.test(
-      apiKey: 'test_pk_gC3b8gY2fF0sN3eX9hZ7kL5vJ1aR4wE6',
+      apiKey: 'test_sk_kMrjDHPewHDyW4CMkPEPl1viQN0ieJp5IKY9vrPB',
     ),
   );
 
@@ -34,7 +30,7 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
       } else if (_doctorCount == 2) {
         _price = 7000;
       } else {
-        _price = _doctorCount * 3500.0;
+        _price = _doctorCount * 3000.0;
       }
     });
   }

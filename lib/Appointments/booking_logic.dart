@@ -64,7 +64,7 @@ class BookingLogic extends ChangeNotifier {
       final openingMinutes = parseInt(clinicData["openingAt"], 0);
       final closingMinutes = parseInt(clinicData["closingAt"], 0);
       final breakStartMinutes = parseInt(clinicData["breakStart"], 0);
-      final breakEndMinutes = parseInt(clinicData["breakEnd"], 0);
+      final breakEndMinutes = parseInt(clinicData["breakEnd"] ?? clinicData["break"], 0);
 
       // Check if clinic is open
       if (!workingDays.contains(day.weekday)) return [];

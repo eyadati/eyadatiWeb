@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:eyadati/utils/network_helper.dart';
 import 'package:eyadati/utils/connectivity_service.dart'; // Add ConnectivityService import
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 // ================ PROVIDER ================
 
@@ -123,6 +124,13 @@ class UserEditProfileProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _saveLastSyncTimestamp(String userUid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_sync_user_$userUid', DateTime.now().toIso8601String());
+  }
+
+
+
   Future<void> _loadUserData() async {
     final user = auth.currentUser;
     if (user == null) throw Exception('no_user_found'.tr());
@@ -139,6 +147,9 @@ class UserEditProfileProvider extends ChangeNotifier {
           .collection('users')
           .doc(user.uid)
           .get(GetOptions(source: Source.serverAndCache));
+      if (doc.exists) {
+        await _saveLastSyncTimestamp(user.uid); // Save timestamp after successful server fetch
+      }
     } else if (!doc.exists && (_connectivityService?.isOnline == false)) {
       // If offline and not in cache, we still don't have data
       throw Exception('user_document_not_found_offline'.tr());

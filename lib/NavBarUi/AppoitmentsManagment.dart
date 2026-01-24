@@ -191,7 +191,10 @@ class ManagementProvider extends ChangeNotifier {
         continue;
       }
 
-      final slotDurationMinutes = _parseInt(_clinicData!["duration"], 60);
+      final slotDurationMinutes = _parseInt(
+        _clinicData!["duration"] ?? _clinicData!["Duration"],
+        60,
+      );
       final slots = await bookingLogic.generateSlots(
         day,
         clinicUid,
@@ -293,7 +296,10 @@ class ManagementProvider extends ChangeNotifier {
 
   String getSlotDisplayText(DateTime slot) {
     final localSlot = slot.toLocal(); // Display in local time for user
-    final slotDurationMinutes = _parseInt(_clinicData!["duration"], 60);
+    final slotDurationMinutes = _parseInt(
+      _clinicData!["Duration"] ?? _clinicData!["duration"],
+      60,
+    );
     final endTime = localSlot.add(Duration(minutes: slotDurationMinutes));
     return "${_twoDigits(localSlot.hour)}:${_twoDigits(localSlot.minute)} - ${_twoDigits(endTime.hour)}:${_twoDigits(endTime.minute)}";
   }
@@ -450,9 +456,9 @@ class _ManagementScreenState extends State<ManagementScreen> {
                   }
                 : null,
           ),
-          Image.asset('assets/logo.png', height: 40),
+          
           Text(
-            DateFormat('EEEE, MMM d, yyyy').format(day.toLocal()),
+            DateFormat('EEEE, MMM d, yyyy', context.locale.toString()).format(day.toLocal()),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
               color: Theme.of(context).colorScheme.onPrimary,

@@ -64,9 +64,11 @@ class Clinicsettings extends StatelessWidget {
         ),
       ],
       child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: Image.asset('assets/logo.png', height: 40),
+        
           centerTitle: true,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         ),
         body: Consumer<ClinicsettingProvider>(
           builder: (context, clinicSettingProvider, child) {
@@ -74,6 +76,7 @@ class Clinicsettings extends StatelessWidget {
               children: [
                 SizedBox(height: 20),
                 FutureBuilder<Map<String, dynamic>?>(
+                  
                   future: clinicUid != null
                       ? clinicSettingProvider._clinicFirestore.getClinicData(
                           clinicUid,

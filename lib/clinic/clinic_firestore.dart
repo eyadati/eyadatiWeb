@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb_flutter;
 import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 class ClinicFirestore {
   final sb_flutter.SupabaseClient client = sb_flutter.Supabase.instance.client;
@@ -122,11 +123,11 @@ class ClinicFirestore {
 
         'breakStart': breakStart,
 
-        "break": breakTime,
+        "breakEnd": breakTime,
 
         "specialty": specialty,
 
-        'Duration': sessionDuration,
+        'duration': sessionDuration,
 
         'staff': 1.toInt(),
 
@@ -139,6 +140,20 @@ class ClinicFirestore {
     }
   }
 
+  Future<void> _saveLastSyncTimestamp(String clinicUid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_sync_clinic_$clinicUid', DateTime.now().toIso8601String());
+  }
+
+  Future<DateTime?> getLastSyncTimestamp(String clinicUid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final timestampString = prefs.getString('last_sync_clinic_$clinicUid');
+    if (timestampString != null) {
+      return DateTime.parse(timestampString);
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> getClinicData(String clinicUid) async {
     try {
       // First, try to get data from cache
@@ -147,6 +162,9 @@ class ClinicFirestore {
       // If data is not in cache AND device is online, try to get from server (and cache)
       if (!doc.exists && (_connectivityService?.isOnline == true)) {
         doc = await collection.doc(clinicUid).get(GetOptions(source: Source.serverAndCache));
+        if (doc.exists) {
+          await _saveLastSyncTimestamp(clinicUid); // Save timestamp after successful server fetch
+        }
       } else if (!doc.exists && (_connectivityService?.isOnline == false)) {
           // If offline and not in cache, we still don't have data, return null
           debugPrint("Clinic data not in cache and device is offline.");
@@ -175,9 +193,16 @@ class ClinicFirestore {
   }
 
   Stream<List<Map<String, dynamic>>> getAvailableClinics() {
-    return collection.where('paused', isEqualTo: false).snapshots().map((
+    return collection.where('paused', isEqualTo: false).snapshots(includeMetadataChanges: true).map((
       snapshot,
     ) {
+      // Implement checks for metadata changes
+      if (snapshot.metadata.isFromCache) {
+        debugPrint("getAvailableClinics: Data from cache.");
+      }
+      if (snapshot.metadata.hasPendingWrites) {
+        debugPrint("getAvailableClinics: Data has pending writes (local changes).");
+      }
       return snapshot.docs.map((doc) => doc.data()).toList();
     });
   }
@@ -268,13 +293,22 @@ class ClinicFirestore {
     if (confirmed != true) return;
 
     try {
-      // Get appointment to find user UID
+      // Check network connectivity before forcing server read
+      if (!(_connectivityService?.isOnline == true)) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('no_internet_connection'.tr())),
+        );
+        return;
+      }
+
+      // Get appointment to find user UID - FORCE SERVER READ
       final appointmentDoc = await _firestore
           .collection('clinics')
           .doc(clinicId)
           .collection('appointments')
           .doc(appointmentId)
-          .get(GetOptions(source: Source.cache));
+          .get(GetOptions(source: Source.server)); // Changed to Source.server
 
       if (!appointmentDoc.exists) {
         throw Exception('appointment_not_found'.tr());

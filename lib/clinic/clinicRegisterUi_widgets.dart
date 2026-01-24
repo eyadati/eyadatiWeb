@@ -419,15 +419,15 @@ Widget _buildAvatarPicker(
   ClinicOnboardingProvider provider,
 ) {
   return SizedBox(
-    height: 100,
-    width: MediaQuery.of(context).size.width * 0.9,
+    height: MediaQuery.of(context).size.height * 0.2,
+    width: MediaQuery.of(context).size.width * 0.3,
     child: GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+        crossAxisCount: 1,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),
-      itemCount: 3,
+      itemCount: 1,
       itemBuilder: (cntx, i) {
         return GestureDetector(
           onTap: () {

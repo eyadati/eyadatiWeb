@@ -155,8 +155,8 @@ class SlotsUiProvider extends ChangeNotifier {
     final opening = data['openingAt'] as int;
     final closing = data['closingAt'] as int;
     final breakStart = data['breakStart'] as int?;
-    final breakEnd = data['breakEnd'] as int?;
-    final duration = data['duration'] as int?;
+    final breakEnd = (data['breakEnd'] ?? data['break']) as int?;
+    final duration = (data['duration'] ?? data['Duration']) as int?;
     final workingDays = List<int>.from(data['workingDays'] ?? []);
 
     // Check if clinic is open
@@ -444,13 +444,13 @@ class _SlotsDialog extends StatelessWidget {
                   _buildConfirmationRow(
                     stfContext,
                     'date'.tr(),
-                    DateFormat('yyyy-MM-dd').format(provider.selectedDate),
+                    DateFormat('yyyy-MM-dd', context.locale.toString()).format(provider.selectedDate),
                   ),
                   const SizedBox(height: 8),
                   _buildConfirmationRow(
                     stfContext,
                     'time'.tr(),
-                    DateFormat('HH:mm').format(provider.selectedSlot!),
+                    DateFormat('HH:mm', context.locale.toString()).format(provider.selectedSlot!),
                   ),
                   const Divider(height: 24),
                   // Editable TextFields for user info
@@ -679,7 +679,7 @@ class _DatePickerRow extends StatelessWidget {
                 onPressed: () => provider.previousWeek(),
               ),
               Text(
-                DateFormat('MMM d, yyyy').format(provider.focusedDay),
+                DateFormat('MMM d, yyyy', context.locale.toString()).format(provider.focusedDay),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               IconButton(
@@ -692,6 +692,7 @@ class _DatePickerRow extends StatelessWidget {
         SizedBox(
           height: 90, // Adjusted height to accommodate new header and calendar
           child: TableCalendar(
+            locale: context.locale.toString(),
             selectedDayPredicate: (day) =>
                 isSameDay(provider.selectedDate, day),
             onDaySelected: (selectedDay, focusedDay) {
@@ -778,7 +779,7 @@ class _SlotTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeString = DateFormat('HH:mm').format(slotInfo.time);
+    final timeString = DateFormat('HH:mm', context.locale.toString()).format(slotInfo.time);
     final isFull = !slotInfo.isAvailable;
 
     return GestureDetector(
