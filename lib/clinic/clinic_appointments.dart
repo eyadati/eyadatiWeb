@@ -1,18 +1,19 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/FCM/notificationsService.dart';
-import 'package:eyadati/NavBarUi/ClinicNavBar.dart';
-import 'package:eyadati/clinic/clinicSettingsPage.dart';
+import 'package:eyadati/FCM/notifications_service.dart';
+import 'package:eyadati/NavBarUi/clinic_nav_bar.dart';
+import 'package:eyadati/clinic/clinic_settings_page.dart';
 import 'package:eyadati/clinic/clinic_firestore.dart';
+import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:eyadati/utils/connectivity_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lucide_animated/flutter_lucide_animated.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Manages clinic appointment state with optimized Firestore queries
 /// and proper lifecycle management to prevent memory leaks.
@@ -31,8 +32,25 @@ class ClinicAppointmentProvider extends ChangeNotifier {
   DocumentSnapshot<Map<String, dynamic>>? get clinicData => _clinicData;
   final ConnectivityService? _connectivityService;
 
+  String _filter = 'online';
+  String get filter => _filter;
+
   List<QueryDocumentSnapshot> _appointments = [];
-  List<QueryDocumentSnapshot> get appointments => _appointments;
+
+  List<QueryDocumentSnapshot> get appointments {
+    // Only return online appointments as requested
+    return _appointments.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return data['isManual'] != true;
+    }).toList();
+  }
+
+  void setFilter(String value) {
+    // No-op as we only show online appointments now
+    _filter = 'online';
+    notifyListeners();
+  }
+
   bool _isInitialLoading = true;
   bool get isInitialLoading => _isInitialLoading;
   SnapshotMetadata? _lastMetadata;
@@ -155,7 +173,7 @@ class ClinicAppointmentProvider extends ChangeNotifier {
 
       final newData = <DateTime, int>{};
       for (var doc in snapshot.docs) {
-        final appointmentDate = (doc.data()['date'] as Timestamp).toDate();
+        final appointmentDate = Clinic.parseDateTime(doc.data()['date']);
         final dateKey = DateTime(
           appointmentDate.year,
           appointmentDate.month,
@@ -214,9 +232,9 @@ class ClinicAppointmentProvider extends ChangeNotifier {
   ) async {
     await ClinicFirestore().cancelAppointment(appointmentId, clinicId);
 
-    if (appointmentData['FCM'] != null) {
+    if (appointmentData['fcm'] != null) {
       await NotificationService().sendDirectNotification(
-        fcmToken: appointmentData['FCM'],
+        fcmToken: appointmentData['fcm'],
         title: 'appointment_cancelled'.tr(),
         body: 'your_appointment_got_cancelled'.tr(),
       );
@@ -329,57 +347,77 @@ class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
         centerTitle: true,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
-                leading: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    LucideAnimatedIcon(
-                      icon: bell,
-                      trigger: navProvider.unreadCount > 0
-                          ? AnimationTrigger.loop
-                          : AnimationTrigger.onTap,
-                      onTap: () {
-                        showMaterialModalBottomSheet(
-                          context: context,
-                          
-                          backgroundColor: Colors.transparent,
-                          builder: (context) =>
-                              NotificationCenter(clinicUid: navProvider.clinicUid),
-                        );
-                      },
-                    ),
-                    if (navProvider.unreadCount > 0)
-                      Positioned(
-                        right: 12,
-                        top: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 8,
-                            minHeight: 8,
-                          ),
+        leading: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('clinics')
+              .doc(navProvider.clinicUid)
+              .collection('appointments')
+              .snapshots(),
+          builder: (context, snapshot) {
+            int unreadCount = 0;
+            if (snapshot.hasData) {
+              unreadCount = snapshot.data!.docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return data['isRead'] == false || !data.containsKey('isRead');
+              }).length;
+            }
+
+            return IconButton(
+              onPressed: () {
+                showMaterialModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: navProvider,
+                    child: NotificationCenter(clinicUid: navProvider.clinicUid),
+                  ),
+                );
+              },
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    LucideIcons.bell,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 25,
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 2,
+                      top: 2,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
                       ),
-                  ],
-                ),
-        
-                actions: [
-                  LucideAnimatedIcon(
-                    icon: settings,
-                    onTap: () => showMaterialModalBottomSheet(
-                      context: context,
-                      builder: (context) {
-                        return SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.9,
-                          child: Clinicsettings(),
-                        );
-                      },
-                    ),
-                  ),
-                ],      ),
+                    ),                ],
+              ),
+            );
+          },
+        ),
+
+        actions: [
+          IconButton(
+            onPressed: () => showMaterialModalBottomSheet(
+              context: context,
+              builder: (context) {
+                return SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.9,
+                  child: Clinicsettings(),
+                );
+              },
+            ),
+            icon: Icon(
+              LucideIcons.settings,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -577,117 +615,175 @@ class _AppointmentsPanel extends StatelessWidget {
                   final appointment = doc.data() as Map<String, dynamic>;
                   final appointmentId = doc.id;
 
-                  final slot = (appointment['date'] as Timestamp).toDate();
+                  final slot = Clinic.parseDateTime(appointment['date']);
                   final timeFormatted = DateFormat(
                     'HH:mm',
                     context.locale.toString(),
                   ).format(slot);
                   final name = appointment['userName'] ?? 'Unknown';
                   final phone = appointment['phone'] ?? 'No phone';
+                  final isManual = appointment['isManual'] == true;
 
-                  return Slidable(
-                    key: ValueKey(appointmentId),
-                    endActionPane: ActionPane(
-                      motion: const ScrollMotion(),
-                      extentRatio: 0.2,
-                      children: [
-                        IconButton(
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text('cancel_appointment'.tr()),
-                                content: Text(
-                                  'are_you_sure_to_cancel_appointment'.tr(),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: Text('no'.tr()),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Slidable(
+                      key: ValueKey(appointmentId),
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(),
+                        extentRatio: isManual ? 0.5 : 0.7,
+                        children: [
+                          SlidableAction(
+                            onPressed: (context) async {
+                              final Uri launchUri = Uri(
+                                scheme: 'tel',
+                                path: phone,
+                              );
+                              if (await canLaunchUrl(launchUri)) {
+                                await launchUrl(launchUri);
+                              }
+                            },
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            icon: LucideIcons.phone,
+                            label: 'call'.tr(),
+                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                          ),
+                          if (!isManual)
+                            SlidableAction(
+                              onPressed: (context) async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text('no_show'.tr()),
+                                    content: Text('mark_as_no_show_confirm'.tr()),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: Text('no'.tr()),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: Text('yes'.tr()),
+                                      ),
+                                    ],
                                   ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
+                                );
+
+                                if (confirmed == true) {
+                                  try {
+                                    await ClinicFirestore().updateNoShow(appointmentId, provider.clinicId);
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('no_show_marked_success'.tr())),
+                                    );
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString())),
+                                    );
+                                  }
+                                }
+                              },
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              icon: LucideIcons.userX,
+                              label: 'no_show'.tr(),
+                            ),
+                          SlidableAction(
+                            onPressed: (context) async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('cancel_appointment'.tr()),
+                                  content: Text(
+                                    'are_you_sure_to_cancel_appointment'.tr(),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: Text('no'.tr()),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      child: Text(
+                                        'yes'.tr(),
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed != true) return;
+
+                              try {
+                                await provider.cancelAppointment(
+                                  appointmentId,
+                                  appointment,
+                                );
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'appointment_cancelled_success'.tr(),
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
+                              }
+                            },
+                            backgroundColor: Theme.of(context).colorScheme.error,
+                            foregroundColor: Colors.white,
+                            icon: LucideIcons.xCircle,
+                            label: 'cancel'.tr(),
+                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                          ),
+                        ],
+                      ),
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12),
+                        child: SizedBox(
+                          height: 120,
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 80,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
                                     child: Text(
-                                      'yes'.tr(),
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
+                                      timeFormatted,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            );
-
-                            if (confirmed != true) return;
-
-                            try {
-                              await provider.cancelAppointment(
-                                appointmentId,
-                                appointment,
-                              );
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'appointment_cancelled_success'.tr(),
-                                  ),
                                 ),
-                              );
-                            } catch (e) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString())),
-                              );
-                            }
-                          },
-                          icon: Icon(
-                            LucideIcons.xCircle,
-                            color: Theme.of(context).colorScheme.error,
-                            size: 40,
+                              ),
+                              Expanded(
+                                child: ListTile(
+                                  trailing: Icon(
+                                    LucideIcons.chevronLeft,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withAlpha(100),
+                                  ),
+                                  title: Text(name),
+                                  subtitle: Text(phone),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    child: SizedBox(
-                      height: 130,
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 80,
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Center(
-                                  child: Text(
-                                    timeFormatted,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: ListTile(
-                                trailing: Icon(
-                                  LucideIcons.chevronLeft,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withAlpha(100),
-                                ),
-                                title: Text(name),
-                                subtitle: Text(phone),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),

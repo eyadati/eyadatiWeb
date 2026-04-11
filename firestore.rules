@@ -2,14 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is authenticated
+    // ======================================================
+    // HELPER FUNCTIONS
+    // ======================================================
+    
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is accessing their own document
     function isOwner(userId) {
       return request.auth.uid == userId;
+    }
+    
+    // Check if the incoming data matches the authenticated user
+    function isResourceOwner(userIdField) {
+      return request.resource.data[userIdField] == request.auth.uid;
+    }
+    
+    // Check if the existing data matches the authenticated user
+    function wasResourceOwner(userIdField) {
+      return resource.data[userIdField] == request.auth.uid;
     }
 
     // ======================================================
@@ -24,14 +36,19 @@ service cloud.firestore {
         // Users can read/write their own appointments
         allow read, write: if isAuthenticated() && isOwner(userId);
         
-        // Clinics need to be able to DELETE the appointment in the user's collection
-        // during a clinic-side cancellation.
-        allow delete: if isAuthenticated() && 
+        // Clinics need to be able to manage the appointment in the user's collection
+        // (e.g., cancellation or no-show updates).
+        allow read, update, delete: if isAuthenticated() && 
           (isOwner(userId) || request.auth.uid == resource.data.clinicUid);
+          
+        // Clinics might need to CREATE an appointment for a user (manual booking or system logic)
+        allow create: if isAuthenticated() && 
+          (isOwner(userId) || request.auth.uid == request.resource.data.clinicUid);
       }
 
       // Favorites subcollection
-      match /favorites/{clinicId} {
+      match /favorites/{favoriteId} {
+        // favoriteId is the clinicUid
         allow read, write: if isAuthenticated() && isOwner(userId);
       }
     }
@@ -40,27 +57,43 @@ service cloud.firestore {
     // CLINIC RULES
     // ======================================================
     match /clinics/{clinicId} {
-      // Clinics are publicly readable so users can search/find them
-      allow read: if true; 
+      // Patients must be able to SEARCH and SEE clinic info
+      // Security note: This exposes all clinic fields. Consider projecting only public fields.
+      allow read: if isAuthenticated(); 
       
       // Only the clinic owner can write to their profile
       allow write: if isAuthenticated() && isOwner(clinicId);
 
       // Appointments subcollection within clinics
       match /appointments/{appointmentId} {
-        // Read: The clinic owner OR the user who booked it
-        allow read: if isAuthenticated() && 
-          (isOwner(clinicId) || request.auth.uid == resource.data.userUid);
-        
-        // Create: Any user can book an appointment at a clinic
-        // We validate that they set themselves as the userUid
+        // 1. Clinic owner can see and manage ALL appointments (Online and Manual)
+        allow read, write: if isAuthenticated() && isOwner(clinicId);
+   
+        // 2. Patients can CREATE an appointment if they are the ones booking it
         allow create: if isAuthenticated() && 
           request.resource.data.userUid == request.auth.uid;
-        
-        // Update/Delete: Only the clinic owner or the booking user
-        allow update, delete: if isAuthenticated() && 
-          (isOwner(clinicId) || request.auth.uid == resource.data.userUid);
+   
+        // 3. Patients can READ/UPDATE/DELETE their own appointments
+        // This applies when resource.data.userUid exists (online bookings)
+        allow read, update, delete: if isAuthenticated() && 
+          resource.data.userUid == request.auth.uid;
+   
+        // 4. Slot Availability check
+        // WARNING: Allowing 'list' to all authenticated users is a privacy leak.
+        // It allows anyone to see who has appointments.
+        // BETTER APPROACH: Use a Cloud Function to check availability OR 
+        // a separate 'public_slots' collection that doesn't contain patient names/phones.
+        // For the current app to function, this must remain open for listing.
+        allow list: if isAuthenticated();
       }
+    }
+    
+    // ======================================================
+    // REGISTRATION REQUESTS (Future proofing)
+    // ======================================================
+    match /registration_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read, write: if false; // Admin only (managed via Firebase Console or Admin SDK)
     }
   }
 }

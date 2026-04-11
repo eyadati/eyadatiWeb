@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:eyadati/user/userRegistrationUi.dart';
 import 'package:eyadati/user/user_login_page.dart';
+import 'package:eyadati/utils/markdown_viewer_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserAuthSelectionScreen extends StatelessWidget {
@@ -39,6 +40,27 @@ class UserAuthSelectionScreen extends StatelessWidget {
                   );
                 },
                 child: Text('create_new_account'.tr()),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MarkdownViewerScreen(
+                        title: "privacy_policy".tr(),
+                        markdownAssetPath: "privacy_policy.md",
+                      ),
+                    ),
+                  );
+                },
+                child: Text(
+                  "privacy_policy".tr(),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
               ),
             ],
           ),

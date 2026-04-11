@@ -1,4 +1,4 @@
-import 'package:eyadati/NavBarUi/ClinicNavBar.dart';
+import 'package:eyadati/NavBarUi/clinic_nav_bar.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

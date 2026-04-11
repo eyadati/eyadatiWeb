@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:flutter/widgets.dart';
 
 class UserFirestore {
   final user = FirebaseAuth.instance.currentUser;
@@ -33,10 +34,34 @@ class UserFirestore {
     }, SetOptions(merge: true));
   }
 
-  Future<void> addToFavorites(String clinicUid) async {
-    final user = FirebaseAuth.instance;
+  Future<void> toggleFavorite(String clinicUid) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) throw Exception('user_not_logged_in'.tr());
 
-    if (user.currentUser != null) {}
+    final favoriteDoc = collection.doc(currentUser.uid).collection('favorites').doc(clinicUid);
+    final docSnapshot = await favoriteDoc.get();
+
+    if (docSnapshot.exists) {
+      await favoriteDoc.delete();
+    } else {
+      // Fetch clinic data to store a snapshot in favorites for offline access
+      final clinicDoc = await FirebaseFirestore.instance.collection('clinics').doc(clinicUid).get();
+      if (clinicDoc.exists) {
+        final clinicData = clinicDoc.data()!;
+        await favoriteDoc.set({
+          'timestamp': FieldValue.serverTimestamp(),
+          'clinicName': clinicData['clinicName'],
+          'address': clinicData['address'],
+          'specialty': clinicData['specialty'],
+          'picUrl': clinicData['picUrl'],
+          'openingAt': clinicData['openingAt'],
+          'closingAt': clinicData['closingAt'],
+          'workingDays': clinicData['workingDays'],
+        });
+      } else {
+        throw Exception('clinic_not_found'.tr());
+      }
+    }
   }
 
   Future<void> updateUser(String name, String phone, String city) async {
@@ -50,7 +75,7 @@ class UserFirestore {
     }, SetOptions(merge: true));
   }
 
-  Future<void> cancelAppointment(String appointmentId, String userUid) async {
+  Future<void> cancelAppointment(String appointmentId, String userUid, [BuildContext? context]) async {
     try {
       // Check network connectivity before forcing server read
       if (!(_connectivityService?.isOnline == true)) {
@@ -63,7 +88,7 @@ class UserFirestore {
           .doc(userUid)
           .collection('appointments')
           .doc(appointmentId)
-          .get(GetOptions(source: Source.server)); // Changed to Source.server
+          .get(const GetOptions(source: Source.server)); // Changed to Source.server
 
       if (!appointmentDoc.exists) {
         throw Exception('appointment_not_found'.tr());

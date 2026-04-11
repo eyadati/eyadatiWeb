@@ -1,8 +1,11 @@
+import 'package:eyadati/utils/models/clinic_model.dart';
+import 'package:eyadati/clinic/clinic_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:rxdart/rxdart.dart';
 
 class AppStartupService {
   static final AppStartupService _instance = AppStartupService._internal();
@@ -18,8 +21,9 @@ class AppStartupService {
   Map<String, dynamic> _userData = {};
   Map<String, dynamic> get userData => _userData;
 
-  Map<String, dynamic> _clinicData = {};
-  Map<String, dynamic> get clinicData => _clinicData;
+  final BehaviorSubject<Clinic?> _clinicSubject = BehaviorSubject<Clinic?>();
+  Stream<Clinic?> get clinicStream => _clinicSubject.stream;
+  Clinic? get currentClinic => _clinicSubject.valueOrNull;
 
   /// Initialize app with role-aware data fetching
   Future<void> initialize(bool isClinic) async {
@@ -34,15 +38,31 @@ class AppStartupService {
     _userId = user.uid;
 
     try {
+      if (isClinic) {
+        await ClinicFirestore().ensureClinicProfileIntegrity(_userId!);
+      }
       await Future.wait([
         _checkAndUpdateFCMToken(),
-        if (isClinic) _cacheClinicData() else _cacheUserData(),
+        if (isClinic) _setupClinicStream() else _cacheUserData(),
       ]);
     } catch (e) {
       debugPrint("Startup error: $e");
     } finally {
       _isInitialized = true;
     }
+  }
+
+  Future<void> _setupClinicStream() async {
+    FirebaseFirestore.instance
+        .collection('clinics')
+        .doc(_userId)
+        .snapshots()
+        .map((snapshot) => snapshot.exists && snapshot.data() != null 
+            ? Clinic.fromMap(snapshot.data()!) 
+            : null)
+        .listen((clinic) {
+          _clinicSubject.add(clinic);
+        });
   }
 
   /// Checks and updates FCM token if it changed
@@ -62,8 +82,8 @@ class AppStartupService {
       final collection = isClinic ? 'clinics' : 'users';
 
       await firestore.collection(collection).doc(_userId).update({
-        'fcmToken': currentToken,
-        'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+        'fcm': currentToken,
+        'fcmUpdatedAt': FieldValue.serverTimestamp(),
       });
 
       await prefs.setString('fcm_token_$_userId', currentToken);
@@ -88,13 +108,6 @@ class AppStartupService {
     );
   }
 
-  Future<void> _cacheClinicData() async {
-    await _fetchDocument(
-      FirebaseFirestore.instance.collection('clinics').doc(_userId),
-      (data) => _clinicData = data,
-    );
-  }
-
   Future<void> _fetchDocument(
     DocumentReference ref,
     Function(Map<String, dynamic>) onSuccess,
@@ -114,5 +127,9 @@ class AppStartupService {
   Future<void> refreshData(bool isClinic) async {
     _isInitialized = false;
     await initialize(isClinic);
+  }
+
+  void dispose() {
+    _clinicSubject.close();
   }
 }

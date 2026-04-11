@@ -8,6 +8,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:eyadati/utils/skeletons.dart';
 
 // ================ PROVIDER ================
 class SlotInfo {
@@ -32,12 +33,17 @@ class SlotsUiProvider extends ChangeNotifier {
 
   String _userName = '';
   String _userPhone = '';
+  String _userFcm = '';
+
+  late Map<String, dynamic> _fullClinicData;
+  Map<String, dynamic> get clinicData => _fullClinicData;
 
   SlotsUiProvider({
     required this.clinic,
     required this.firestore,
     FirebaseAuth? auth,
   }) : auth = auth ?? FirebaseAuth.instance {
+    _fullClinicData = Map<String, dynamic>.from(clinic);
     _initializeData();
     _loadUserData();
   }
@@ -48,11 +54,12 @@ class SlotsUiProvider extends ChangeNotifier {
       final userDoc = await firestore
           .collection('users')
           .doc(user.uid)
-          .get(GetOptions(source: Source.cache));
+          .get(const GetOptions(source: Source.server));
       if (userDoc.exists) {
         final data = userDoc.data()!;
         _userName = data['name'] ?? '';
         _userPhone = data['phone'] ?? '';
+        _userFcm = data['fcm'] ?? '';
         notifyListeners();
       }
     }
@@ -75,6 +82,23 @@ class SlotsUiProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // If clinic data is incomplete (e.g. from favorites snapshot), fetch the full doc
+      if (!_fullClinicData.containsKey('openingAt') ||
+          !_fullClinicData.containsKey('duration')) {
+        final clinicUid = _fullClinicData['uid'] ?? _fullClinicData['id'];
+        final doc = await firestore
+            .collection('clinics')
+            .doc(clinicUid)
+            .get(const GetOptions(source: Source.serverAndCache));
+
+        if (doc.exists) {
+          _fullClinicData = doc.data()!;
+          _fullClinicData['uid'] = doc.id; // Ensure UID is present
+        } else {
+          throw Exception('clinic_not_found'.tr());
+        }
+      }
+
       await _loadSlots();
     } catch (e) {
       errorMessage = 'failed_load_slots'.tr(args: [e.toString()]);
@@ -129,11 +153,11 @@ class SlotsUiProvider extends ChangeNotifier {
 
     final snapshot = await firestore
         .collection('clinics')
-        .doc(clinic['uid'])
+        .doc(clinicData['uid'])
         .collection('appointments')
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('date', isLessThan: Timestamp.fromDate(endOfDay))
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     // Count bookings per EXACT slot start time
     final bookingCounts = <DateTime, int>{};
@@ -151,16 +175,34 @@ class SlotsUiProvider extends ChangeNotifier {
     }
 
     // Use clinic configuration from provider's field
-    final data = clinic;
-    final opening = data['openingAt'] as int;
-    final closing = data['closingAt'] as int;
-    final breakStart = data['breakStart'] as int?;
-    final breakEnd = (data['breakEnd'] ?? data['break']) as int?;
-    final duration = (data['duration'] ?? data['Duration']) as int?;
-    final workingDays = List<int>.from(data['workingDays'] ?? []);
+    final data = clinicData;
+
+    // SAFE PARSING HELPER
+    int parseInt(dynamic value, int defaultValue) {
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? defaultValue;
+      return defaultValue;
+    }
+
+    final opening = parseInt(data['openingAt'], 480); // Default 8:00
+    final closing = parseInt(data['closingAt'], 1080); // Default 18:00
+    final breakStart = data['breakStart'] != null
+        ? parseInt(data['breakStart'], 720)
+        : null;
+    final breakEnd = (data['breakEnd'] ?? data['break']) != null
+        ? parseInt(data['breakEnd'] ?? data['break'], 840)
+        : null;
+    final duration = parseInt(data['duration'] ?? data['Duration'], 60);
+    final workingDaysList =
+        (data['workingDays'] as List?)
+            ?.map((e) => parseInt(e, 0))
+            .toList() ??
+        [];
 
     // Check if clinic is open
-    if (!workingDays.contains(selectedDate.weekday)) {
+    if (!workingDaysList.contains(selectedDate.weekday)) {
+      allSlots = []; // Ensure old slots are cleared
       return;
     }
 
@@ -180,13 +222,15 @@ class SlotsUiProvider extends ChangeNotifier {
       closing % 60,
     );
 
-    final slotDuration = duration ?? 60;
+    final slotDuration = duration;
 
     // Generate all possible slots
     List<SlotInfo> generatedSlots = [];
+    final staffCountValue = parseInt(data['staff'], 1);
+
     while (currentSlot.isBefore(closingTime)) {
       final bookings = bookingCounts[currentSlot] ?? 0;
-      final isAvailable = bookings < (data['staff'] as int? ?? 1);
+      final isAvailable = bookings < staffCountValue;
 
       generatedSlots.add(
         SlotInfo(
@@ -265,10 +309,10 @@ class SlotsUiProvider extends ChangeNotifier {
     final slotInfo = allSlots.firstWhere((s) => s.time == selectedSlot);
 
     final Event event = Event(
-      title: 'Appointment at ${clinic['clinicName']}',
+      title: 'Appointment at ${clinicData['clinicName']}',
       startDate: selectedSlot!,
       endDate: selectedSlot!.add(Duration(minutes: slotInfo.duration)),
-      location: clinic['address'],
+      location: clinicData['address'],
     );
 
     await Add2Calendar.addEvent2Cal(event);
@@ -301,34 +345,35 @@ class SlotsUiProvider extends ChangeNotifier {
 
         final querySnapshot = await firestore
             .collection('clinics')
-            .doc(clinic['uid'])
+            .doc(clinicData['uid'])
             .collection('appointments')
             .where('date', isGreaterThanOrEqualTo: slotStart)
             .where('date', isLessThan: slotEnd)
-            .get();
+            .get(const GetOptions(source: Source.server));
 
-        final staffCount = clinic['staff'] as int? ?? 1;
+        final staffCount = clinicData['staff'] as int? ?? 1;
         if (querySnapshot.docs.length >= staffCount) {
           throw Exception('slot_is_full'.tr());
         }
 
         final appointmentId =
-            "${clinic['uid']}_${auth.currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}";
+            "${clinicData['uid']}_${auth.currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}";
 
         // Save the provided user name and phone directly into the appointment
         final appointmentData = {
-          "clinicUid": clinic['uid'],
+          "clinicUid": clinicData['uid'],
           "userUid": auth.currentUser!.uid,
           "date": slotStart,
           "userName": userName,
           "phone": userPhone,
+          "fcm": _userFcm,
           "createdAt": FieldValue.serverTimestamp(),
         };
 
         transaction.set(
           firestore
               .collection('clinics')
-              .doc(clinic['uid'])
+              .doc(clinicData['uid'])
               .collection('appointments')
               .doc(appointmentId),
           appointmentData,
@@ -408,7 +453,7 @@ class _SlotsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SlotsUiProvider>();
-    final clinic = provider.clinic;
+    final clinic = provider.clinicData;
 
     Future<void> handleBookAppointment() async {
       if (provider.selectedSlot == null) {
@@ -438,7 +483,7 @@ class _SlotsDialog extends StatelessWidget {
                   _buildConfirmationRow(
                     stfContext,
                     'clinic'.tr(),
-                    clinic['clinicName'],
+                    provider.clinicData['clinicName'],
                   ),
                   const SizedBox(height: 8),
                   _buildConfirmationRow(
@@ -487,6 +532,22 @@ class _SlotsDialog extends StatelessWidget {
                     },
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withAlpha(100),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'appointment_fee_note'.tr(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -553,8 +614,8 @@ class _SlotsDialog extends StatelessWidget {
                 onPressed: handleBookAppointment,
                 child: Text(
                   "book_appointment".tr(),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
+                  style: const TextStyle(
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -735,7 +796,7 @@ class _SlotsGrid extends StatelessWidget {
     final provider = context.watch<SlotsUiProvider>();
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SlotGridSkeleton();
     }
 
     if (provider.errorMessage.isNotEmpty) {

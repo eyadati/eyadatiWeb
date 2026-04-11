@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:eyadati/Appointments/utils.dart';
 import 'package:eyadati/chargili/paiment.dart';
+import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart'; // flutter pub add flutter_floating_bottom_bar
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/NavBarUi/AppoitmentsManagment.dart';
+import 'package:eyadati/NavBarUi/appointments_management.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:eyadati/utils/connectivity_service.dart';
@@ -18,47 +20,62 @@ class CliniNavBarProvider extends ChangeNotifier {
   final String clinicUid;
   String _selected = "1";
   String get selected => _selected;
+  List<QueryDocumentSnapshot> _notifications = [];
+  List<QueryDocumentSnapshot> get notifications => _notifications;
   int _unreadCount = 0;
   int get unreadCount => _unreadCount;
   StreamSubscription? _notifSubscription;
   StreamSubscription? _clinicSubscription;
 
-  Map<String, dynamic>? _clinicData;
+  Clinic? _clinic;
   bool _isLoadingClinic = true;
   bool get isLoadingClinic => _isLoadingClinic;
-  Map<String, dynamic>? get clinicData => _clinicData;
+  Clinic? get clinic => _clinic;
 
   CliniNavBarProvider(this.clinicUid) {
-    // _startSimulation(clinicUid); // Disabled for release
     _listenForNotifications(clinicUid);
-    _listenToClinicDoc();
+    _listenToClinicStream();
   }
 
-  void _listenToClinicDoc() {
-    _clinicSubscription = FirebaseFirestore.instance
-        .collection('clinics')
-        .doc(clinicUid)
-        .snapshots()
-        .listen((snapshot) {
-          if (snapshot.exists) {
-            _clinicData = snapshot.data() as Map<String, dynamic>;
-          }
-          _isLoadingClinic = false;
-          notifyListeners();
-        });
+  void _listenToClinicStream() {
+    _clinicSubscription = AppStartupService().clinicStream.listen((clinic) {
+      _clinic = clinic;
+      if (_clinic != null) {
+        _syncAppointmentCountIfNeeded();
+      }
+      _isLoadingClinic = false;
+      notifyListeners();
+    });
   }
 
+  int _lastSyncedCount = -1;
 
+  Future<void> _syncAppointmentCountIfNeeded() async {
+    if (_clinic == null) return;
+    final newCount = await PaymentService.syncAppointmentCountIfNeeded(
+      clinicUid: clinicUid,
+      clinicData: _clinic!.toMap(),
+      lastSyncedCount: _lastSyncedCount,
+    );
+    if (newCount != null) {
+      _lastSyncedCount = newCount;
+    }
+  }
 
   void _listenForNotifications(String clinicUid) {
     _notifSubscription = FirebaseFirestore.instance
         .collection('clinics')
         .doc(clinicUid)
         .collection('appointments')
-        .where('isRead', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
         .snapshots()
         .listen((snapshot) {
-          _unreadCount = snapshot.docs.length;
+          _notifications = snapshot.docs;
+          _unreadCount = snapshot.docs.where((doc) {
+            final data = doc.data();
+            return data['isRead'] == false || !data.containsKey('isRead');
+          }).length;
           notifyListeners();
         });
   }
@@ -121,34 +138,22 @@ class _BottomNavContent extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (provider.clinicData == null) {
+    if (provider.clinic == null) {
       return Scaffold(body: Center(child: Text('clinic_data_not_found'.tr())));
     }
 
-    final clinicData = provider.clinicData!;
-    final bool isPaused = clinicData['paused'] ?? false;
-    final Timestamp? subscriptionEndDateTimestamp =
-        clinicData['subscriptionEndDate'] as Timestamp?;
+    final clinic = provider.clinic!;
+    final status = PaymentService.checkSubscriptionStatus(clinic.toMap());
 
-    final bool isSubscriptionEnded =
-        subscriptionEndDateTimestamp != null &&
-        subscriptionEndDateTimestamp.toDate().isBefore(DateTime.now());
-
-    if (isPaused) {
-      return _buildOverlayMessage(
-        context,
-        'clinic_paused_title'.tr(),
-        'clinic_paused_message'.tr(),
-        LucideIcons.pauseCircle,
-      );
-    }
-
-    if (isSubscriptionEnded) {
-      return _buildOverlayMessage(
-        context,
-        'subscription_ended_title'.tr(),
-        'subscription_ended_message'.tr(),
-        LucideIcons.alertTriangle,
+    if (status['isPaused'] ||
+        status['needsPayment'] ||
+        status['isSubscriptionEnded']) {
+      return PaymentOverlay(
+        title: status['overlayTitle'],
+        message: status['overlayMessage'],
+        icon: status['icon'],
+        initialAmount:
+            status['needsPayment'] ? (status['totalFees'] as double) : null,
       );
     }
 
@@ -194,68 +199,6 @@ class _BottomNavContent extends StatelessWidget {
             _buildNavItem(context, LucideIcons.home, "home".tr(), "1"),
             _buildNavItem(context, LucideIcons.calendar, "managment".tr(), "2"),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverlayMessage(
-    BuildContext context,
-    String title,
-    String message,
-    IconData icon,
-  ) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (_) {
-                        return const SubscribeScreen();
-                      },
-                    );
-                  },
-                  icon: const Icon(LucideIcons.refreshCcw),
-                  label: Text('take_action'.tr()),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    textStyle: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -336,20 +279,9 @@ class NotificationCenter extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('clinics')
-                      .doc(clinicUid)
-                      .collection('appointments')
-                      .orderBy('createdAt', descending: true)
-                      .limit(50)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final docs = snapshot.data!.docs;
+                child: Consumer<CliniNavBarProvider>(
+                  builder: (context, provider, child) {
+                    final docs = provider.notifications;
                     if (docs.isEmpty) {
                       return Center(child: Text('no_notifications'.tr()));
                     }
@@ -359,8 +291,16 @@ class NotificationCenter extends StatelessWidget {
                       itemCount: docs.length,
                       itemBuilder: (context, index) {
                         final data = docs[index].data() as Map<String, dynamic>;
-                        final isRead = data['isRead'] ?? true;
-                        final date = (data['date'] as Timestamp).toDate();
+                        final isRead = data['isRead'] ?? false;
+                        final dateValue = data['date'];
+                        final DateTime date;
+                        if (dateValue is Timestamp) {
+                          date = dateValue.toDate();
+                        } else if (dateValue is String) {
+                          date = DateTime.parse(dateValue);
+                        } else {
+                          date = DateTime.now();
+                        }
 
                         return ListTile(
                           leading: CircleAvatar(
@@ -377,7 +317,7 @@ class NotificationCenter extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            data['userName'] ?? 'Unknown Patient',
+                            data['userName'] ?? 'unknown_patient'.tr(),
                             style: TextStyle(
                               fontWeight: isRead
                                   ? FontWeight.normal

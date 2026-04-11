@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:eyadati/utils/models/clinic_model.dart';
+import 'package:eyadati/utils/exceptions.dart';
 import 'package:eyadati/utils/network_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -46,6 +47,7 @@ class ClinicFirestore {
     String adress,
     double? latitude,
     double? longitude,
+    int staff,
   ) async {
     try {
       final fcm = await FirebaseMessaging.instance.getToken();
@@ -55,33 +57,82 @@ class ClinicFirestore {
         geoFirePoint = GeoFirePoint(GeoPoint(latitude, longitude));
       }
 
-      await collection.doc(clinic?.uid).set({
-        "uid": clinic!.uid,
-        "email": clinic!.email,
-        "name": name,
-        "clinicName": clinicName,
-        "FCM": fcm,
-        "mapsLink": mapsLink,
-        "workingDays": workingDays,
-        "subscriptionStartDate": DateTime.now(),
-        "subscriptionEndDate": DateTime.now().add(Duration(days: 31)),
-        "paused": false,
-        "phone": phone,
-        "address": adress,
-        "city": city,
-        'picUrl': picUrl,
-        "openingAt": openingAt,
-        'closingAt': closingAt,
-        'breakStart': breakStart,
-        "breakEnd": breakEnd,
-        "specialty": specialty,
-        'duration': sessionDuration,
-        'staff': 1.toInt(),
-        "position": geoFirePoint?.data, // Stores geohash and geopoint
-      });
+      final newClinic = Clinic(
+        uid: clinic!.uid,
+        email: clinic!.email ?? '',
+        name: name,
+        clinicName: clinicName,
+        fcm: fcm,
+        mapsLink: mapsLink,
+        workingDays: workingDays.cast<int>(),
+        subscriptionStartDate: DateTime.now(),
+        subscriptionEndDate: DateTime.now().add(const Duration(days: 31)),
+        subscriptionType: "pay_per_appointment",
+        appointmentsThisMonth: 0,
+        multiplierValue: 100.0,
+        paidThisMonth: true,
+        noShowTotal: 0,
+        paused: false,
+        phone: phone,
+        address: adress,
+        city: city,
+        picUrl: picUrl,
+        openingAt: openingAt,
+        closingAt: closingAt,
+        breakStart: breakStart,
+        breakEnd: breakEnd,
+        specialty: specialty,
+        duration: sessionDuration,
+        staff: staff,
+        position: geoFirePoint?.data,
+      );
+
+      await collection.doc(clinic?.uid).set(newClinic.toMap());
     } catch (e) {
       debugPrint("Clinic creation error : $e");
-      rethrow;
+      throw DatabaseException('failed_to_save_clinic_data');
+    }
+  }
+
+  Future<void> ensureClinicProfileIntegrity(String clinicUid) async {
+    try {
+      final doc = await collection.doc(clinicUid).get(const GetOptions(source: Source.server));
+      if (!doc.exists) return;
+
+      final data = doc.data()!;
+      final updates = <String, dynamic>{};
+
+      if (!data.containsKey('subscriptionStartDate')) {
+        updates['subscriptionStartDate'] = FieldValue.serverTimestamp();
+      }
+      if (!data.containsKey('subscriptionEndDate')) {
+        updates['subscriptionEndDate'] = Timestamp.fromDate(DateTime.now().add(const Duration(days: 31)));
+      }
+      if (!data.containsKey('subscriptionType')) {
+        updates['subscriptionType'] = 'pay_per_appointment';
+      }
+      if (!data.containsKey('appointments_this_month')) {
+        updates['appointments_this_month'] = 0;
+      }
+      if (!data.containsKey('paid_this_month')) {
+        updates['paid_this_month'] = true;
+      }
+      if (!data.containsKey('multiplierValue')) {
+        updates['multiplierValue'] = 100.0;
+      }
+      if (!data.containsKey('staff')) {
+        updates['staff'] = 1;
+      }
+      if (!data.containsKey('paused')) {
+        updates['paused'] = false;
+      }
+
+      if (updates.isNotEmpty) {
+        await collection.doc(clinicUid).update(updates);
+        debugPrint("✅ Fixed clinic profile integrity for $clinicUid: ${updates.keys.join(', ')}");
+      }
+    } catch (e) {
+      debugPrint("Error ensuring clinic profile integrity: $e");
     }
   }
 
@@ -101,6 +152,7 @@ class ClinicFirestore {
     required int breakEnd,
     required String address,
     required bool paused,
+    required int staff,
     double? latitude,
     double? longitude,
   }) async {
@@ -117,7 +169,7 @@ class ClinicFirestore {
         "email": clinic!.email,
         "name": name,
         "clinicName": clinicName,
-        "FCM": fcm,
+        "fcm": fcm,
         "mapsLink": mapsLink,
         "workingDays": workingDays,
         "phone": phone,
@@ -130,7 +182,7 @@ class ClinicFirestore {
         "breakEnd": breakEnd,
         "specialty": specialty,
         'duration': sessionDuration,
-        'staff': 1.toInt(),
+        'staff': staff,
         "paused": paused,
       };
 
@@ -141,7 +193,7 @@ class ClinicFirestore {
       await collection.doc(clinic?.uid).update(updateData);
     } catch (e) {
       debugPrint("Clinic update error : $e");
-      rethrow;
+      throw DatabaseException('failed_to_update_clinic_data');
     }
   }
 
@@ -160,6 +212,12 @@ class ClinicFirestore {
       return DateTime.parse(timestampString);
     }
     return null;
+  }
+
+  Future<Clinic?> getClinic(String clinicUid) async {
+    final data = await getClinicData(clinicUid);
+    if (data == null) return null;
+    return Clinic.fromMap(data);
   }
 
   Future<Map<String, dynamic>?> getClinicData(String clinicUid) async {
@@ -202,7 +260,7 @@ class ClinicFirestore {
       await collection.doc(clinicUid).update({"paused": isPaused});
     } catch (e) {
       debugPrint("Error updating clinic pause status: $e");
-      rethrow;
+      throw DatabaseException('failed_to_update_pause_status');
     }
   }
 
@@ -228,7 +286,7 @@ class ClinicFirestore {
     try {
       final user = _firebaseAuth.currentUser;
       if (user == null) {
-        throw Exception('no_user_logged_in'.tr());
+        throw AuthException('no_user_logged_in');
       }
 
       // Reauthenticate user
@@ -239,7 +297,6 @@ class ClinicFirestore {
       await user.reauthenticateWithCredential(credential);
 
       // Best-effort client-side cleanup for orphaned data
-      // Note: This is not as reliable as Cloud Functions.
       try {
         final appointmentsSnapshot = await collection
             .doc(user.uid)
@@ -266,7 +323,6 @@ class ClinicFirestore {
         await batch.commit();
       } catch (e) {
         debugPrint("Error performing client-side cleanup: $e");
-        // Continue with account deletion even if cleanup fails partially
       }
 
       // 1. Delete clinic document from Firestore
@@ -277,8 +333,10 @@ class ClinicFirestore {
 
       // Sign out after deletion
       await _firebaseAuth.signOut();
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(e.message ?? 'failed_to_delete_account');
     } catch (e) {
-      rethrow;
+      throw DatabaseException('failed_to_delete_account');
     }
   }
 
@@ -289,7 +347,7 @@ class ClinicFirestore {
           _connectivityService?.isOnline ??
           await NetworkHelper.checkInternetConnectivity();
       if (!isOnline) {
-        throw Exception('no_internet_connection'.tr());
+        throw NetworkException();
       }
 
       // Get appointment to find user UID - FORCE SERVER READ
@@ -301,7 +359,7 @@ class ClinicFirestore {
           .get(GetOptions(source: Source.server));
 
       if (!appointmentDoc.exists) {
-        throw Exception('appointment_not_found'.tr());
+        throw DatabaseException('appointment_not_found');
       }
 
       final appointmentData = appointmentDoc.data()!;
@@ -328,7 +386,103 @@ class ClinicFirestore {
 
       await batch.commit();
     } catch (e) {
-      rethrow;
+      if (e is AppException) rethrow;
+      throw DatabaseException('failed_to_cancel_appointment');
+    }
+  }
+
+  Future<void> updateNoShow(String appointmentId, String clinicId) async {
+    try {
+      final batch = _firestore.batch();
+      final clinicRef = collection.doc(clinicId);
+      final appointmentRef = clinicRef.collection('appointments').doc(appointmentId);
+
+      // Get current data to know userUid
+      final appointmentDoc = await appointmentRef.get();
+      if (!appointmentDoc.exists) throw DatabaseException('appointment_not_found');
+      final data = appointmentDoc.data()!;
+      final userUid = data['userUid'];
+      
+      batch.delete(appointmentRef);
+      if (userUid != null) {
+        batch.delete(_firestore.collection('users').doc(userUid).collection('appointments').doc(appointmentId));
+      }
+
+      batch.update(clinicRef, {
+        'no_show_total': FieldValue.increment(1),
+      });
+
+      await batch.commit();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('failed_to_update_no_show');
+    }
+  }
+
+  Future<void> incrementAppointmentCount(String clinicId) async {
+    try {
+      await collection.doc(clinicId).update({
+        'appointments_this_month': FieldValue.increment(1),
+      });
+    } catch (e) {
+      debugPrint("Error incrementing appointment count: $e");
+    }
+  }
+
+  Future<void> addManualAppointment({
+    required String clinicId,
+    required String name,
+    required String phone,
+    required DateTime date,
+  }) async {
+    try {
+      // 1. First check occupancy OUTSIDE transaction because queries are not allowed inside client-side transactions
+      final slotStart = Timestamp.fromDate(date);
+      // We need clinic data for duration to calculate slot end
+      final clinicDoc = await collection.doc(clinicId).get();
+      if (!clinicDoc.exists) throw DatabaseException('clinic_not_found');
+      
+      final clinic = Clinic.fromMap(clinicDoc.data()!);
+      final staffCount = clinic.staff;
+      final duration = clinic.duration;
+      final slotEnd = Timestamp.fromDate(date.add(Duration(minutes: duration)));
+
+      final appointmentsSnapshot = await collection
+          .doc(clinicId)
+          .collection('appointments')
+          .where('date', isGreaterThanOrEqualTo: slotStart)
+          .where('date', isLessThan: slotEnd)
+          .get(const GetOptions(source: Source.server));
+
+      if (appointmentsSnapshot.docs.length >= staffCount) {
+        throw AppException('slot_is_full');
+      }
+
+      // 2. Perform the write in a transaction or batch if needed, 
+      // but since we already checked occupancy above and it's a manual appointment,
+      // a simple write is often sufficient for manual clinic operations.
+      // However, to keep it consistent with the intention of being safe:
+      final appointmentRef = collection.doc(clinicId).collection('appointments').doc();
+      
+      await _firestore.runTransaction((transaction) async {
+        // Re-verify clinic still exists and get latest data if needed
+        final txClinicDoc = await transaction.get(collection.doc(clinicId));
+        if (!txClinicDoc.exists) throw DatabaseException('clinic_not_found');
+
+        transaction.set(appointmentRef, {
+          'id': appointmentRef.id,
+          'userName': name,
+          'phone': phone,
+          'date': slotStart,
+          'createdAt': FieldValue.serverTimestamp(),
+          'isManual': true,
+          'isRead': true,
+        });
+      });
+    } catch (e) {
+      debugPrint("Error adding manual appointment: $e");
+      if (e is AppException) rethrow;
+      throw DatabaseException('failed_to_add_manual_appointment');
     }
   }
 }

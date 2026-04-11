@@ -5,19 +5,19 @@ This document provides a detailed review of the clinic-side codebase, focusing o
 ## 1. Authentication & Authorization
 
 ### Critical: Missing Role Verification on Login
-- **File:** `lib/clinic/clinicAuth.dart` (Line 64) & `lib/clinic/clinic_login_page.dart` (Line 38)
+- **File:** `lib/clinic/clinic_auth.dart` (Line 64) & `lib/clinic/clinic_login_page.dart` (Line 38)
 - **Issue:** Both login implementations (`Clinicauth.clinicLoginIn` and `ClinicLoginPage._login`) sign the user in via Firebase Auth and immediately redirect to `Clinichome`. There is **no verification** that the authenticated user is actually a clinic.
 - **Risk:** A regular user (patient) could log in via the clinic login screen and access the `Clinichome` UI. While Firestore rules might prevent them from writing data if rules are set up correctly, the UI state would be inconsistent (loading a non-existent clinic profile).
 - **Recommendation:** After `signInWithEmailAndPassword`, fetch the user document from the `clinics` collection. If it doesn't exist, sign out and show an error ("Not a clinic account").
 - **Status:** **Ignored per user request.** The user stated that role selection is handled at the start and asked to avoid role issues, effectively deciding to trust the initial flow.
 
 ### Inconsistent Auth Logic
-- **File:** `lib/clinic/clinicAuth.dart`
+- **File:** `lib/clinic/clinic_auth.dart`
 - **Issue:** This file seems redundant or partially deprecated. `ClinicLoginPage` (in `lib/clinic/clinic_login_page.dart`) appears to be the dedicated login screen, yet `Clinicauth` class exists with a dialog-based login flow.
 - **Recommendation:** Consolidate authentication logic. If `ClinicLoginPage` is the standard, remove `Clinicauth` class to avoid confusion.
 
 ### Role Persistence Security
-- **File:** `lib/clinic/clinic_login_page.dart` (Line 35) & `lib/clinic/clinicRegisterUi.dart` (Line 294)
+- **File:** `lib/clinic/clinic_login_page.dart` (Line 35) & `lib/clinic/clinic_register_ui.dart` (Line 294)
 - **Issue:** The app relies on `SharedPreferences.setString('role', 'clinic')` for role persistence.
 - **Risk:** `SharedPreferences` is local storage and can be manipulated on rooted/jailbroken devices. Relying on this for routing or access control is insecure.
 - **Recommendation:** Always verify role against a trusted source (ID Token custom claims or Firestore document existence) during the session initialization or critical actions.
@@ -51,19 +51,19 @@ This document provides a detailed review of the clinic-side codebase, focusing o
 - **Status:** **Optimized.** Changed heatmap generation to fetch only the **current week** (based on `focusedDay`) instead of the whole month, as explicitly requested. The logic was moved to `ClinicAppointmentProvider` (`fetchHeatMapData`) and updates dynamically when the calendar page changes (`onPageChanged`).
 
 ### Cache Strategy Risk
-- **File:** `lib/clinic/clinicEditeProfile.dart` (Line 164)
+- **File:** `lib/clinic/clinic_edit_profile.dart` (Line 164)
 - **Issue:** `GetOptions(source: Source.cache)` is used to load clinic profile data.
 - **Risk:** If the user edits their profile on another device, or if the cache is empty/corrupted, this method might return stale data or fail.
 - **Recommendation:** Use `Source.serverAndCache` (default behavior) to ensure data is fresh, or implement a explicit offline-first strategy where you check cache first, then background fetch server updates.
 
 ### Unsafe Profile Updates
-- **File:** `lib/clinic/clinicEditeProfile.dart` (Line 230: `saveProfile`)
+- **File:** `lib/clinic/clinic_edit_profile.dart` (Line 230: `saveProfile`)
 - **Issue:** The app allows changing `workingDays`, `openingAt`, `closingAt`, and `duration` without checking for existing future appointments.
 - **Risk:** A clinic could change their hours to close on Fridays, but they might already have bookings for next Friday. These appointments would become invalid or invisible depending on query logic, causing confusion.
 - **Recommendation:** Warning prompt: "You have X upcoming appointments that conflict with these new hours." or prevent changes if conflicts exist.
 
 ### Working Days Sorting
-- **File:** `lib/clinic/clinicEditeProfile.dart` & `lib/clinic/clinicRegisterUi.dart`
+- **File:** `lib/clinic/clinic_edit_profile.dart` & `lib/clinic/clinic_register_ui.dart`
 - **Issue:** Working days selected by the user were saved in the order they were clicked, leading to disordered display (e.g., "Wednesday, Monday").
 - **Status:** **Fixed.** `workingDays` list is now sorted (`workingDays.sort()`) before saving to Firestore in both registration and edit profile flows.
 
@@ -84,17 +84,17 @@ This document provides a detailed review of the clinic-side codebase, focusing o
 ## 4. UI & UX
 
 ### Hardcoded Strings & Inconsistent Localization
-- **File:** `lib/clinic/clinicAuth.dart`
+- **File:** `lib/clinic/clinic_auth.dart`
 - **Issue:** Strings like "Login", "Email", "Password" use `.tr()`, but error messages like "Login error: $e" (Line 71) are printed to debug console, and "Login failed" is shown to user.
 - **Recommendation:** Ensure all user-facing strings are in localization files.
 
 ### Lack of Input Validation Feedback
-- **File:** `lib/clinic/clinicRegisterUi.dart`
+- **File:** `lib/clinic/clinic_register_ui.dart`
 - **Issue:** While there is form validation, the feedback for image upload failure (Line 300) is a generic Exception thrown inside a try-catch block which might not be user-friendly.
 - **Recommendation:** Provide specific error messages for image upload failures (e.g., "File too large", "Network error").
 
 ### Map Coordinate Extraction Reliance
-- **File:** `lib/clinic/clinicRegisterUi.dart` (Line 185: `extractCoordinates`)
+- **File:** `lib/clinic/clinic_register_ui.dart` (Line 185: `extractCoordinates`)
 - **Issue:** The app relies on `GoogleMapsUrlExtractor` to parse coordinates from a text link.
 - **Risk:** Google Maps URL formats change frequently. If the library is outdated or the user pastes a shortened URL (bit.ly) or a different format, extraction fails silently.
 - **Recommendation:** Allow users to manually pinpoint their location on a map widget if auto-extraction fails, or use the Google Places API for address selection.
@@ -102,18 +102,18 @@ This document provides a detailed review of the clinic-side codebase, focusing o
 ## 5. Code Structure & Quality
 
 ### Hardcoded Values
-- **File:** `lib/clinic/clinicEditeProfile.dart` (Line 233)
+- **File:** `lib/clinic/clinic_edit_profile.dart` (Line 233)
 - **Issue:** `duration: int.tryParse(durationController.text) ?? 60`.
 - **Observation:** Default appointment duration is hardcoded to 60 minutes.
 - **Recommendation:** Define constants for defaults.
 
 ### Duplicate City Lists
-- **File:** `lib/clinic/clinicEditeProfile.dart` vs `lib/clinic/clinicRegisterUi.dart`
+- **File:** `lib/clinic/clinic_edit_profile.dart` vs `lib/clinic/clinic_register_ui.dart`
 - **Issue:** The list of `algerianCities` is duplicated in both files.
 - **Recommendation:** Move static data like cities and specialties to a shared `Constants` or `Utils` file to ensure consistency and maintainability.
 
 ### Network Helper Usage
-- **File:** `lib/clinic/clinicAuth.dart` vs `lib/clinic/clinicRegisterUi.dart`
+- **File:** `lib/clinic/clinic_auth.dart` vs `lib/clinic/clinic_register_ui.dart`
 - **Issue:** `NetworkHelper.checkInternetConnectivity()` is used in some places, while `ConnectivityService` (Provider) is used in others.
 - **Recommendation:** Standardize on `ConnectivityService` (Provider) as it allows for reactive UI updates (listeners) rather than just one-time checks.
 

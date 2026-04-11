@@ -1,90 +1,47 @@
 # Privacy Policy for Eyadati
 
-**Last Updated: January 16, 2026**
+**Last Updated: April 11, 2026**
 
-Eyadati ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (the "Service").
+This Privacy Policy describes how Eyadati ("we", "us", or "our") collects, uses, and shares your information when you use our mobile application.
 
-Please read this Privacy Policy carefully. If you do not agree with the terms of this privacy policy, please do not access the application.
+## 1. Information Collection and Use
 
-## Information We Collect
+### 1.1 Personal Data
+While using our Service, we may ask you to provide us with certain personally identifiable information that can be used to contact or identify you, including but not limited to:
+- Name and Email Address
+- Phone Number
+- City and Address
+- Professional Specialty (for Clinics)
 
-We may collect information about you in a variety of ways. The information we may collect on the Service includes:
+### 1.2 Sensitive Permissions & Data
+Our application requires access to certain sensitive device features to provide its core functionality:
 
-### Personal Data
+**A. Camera Access (android.permission.CAMERA)**
+- **Purpose:** We request camera access to allow patients and clinics to capture and upload profile photographs and relevant medical/clinic documentation.
+- **Usage:** Images are only captured or accessed when you explicitly initiate the "Upload Photo" or "Take Picture" feature. These images are uploaded to our secure servers (Firebase) solely for display within your profile or appointment details. We do not use your camera in the background or for any other purpose.
 
-Personally identifiable information, such as your name, email address, and telephone number, and demographic information, such as your city, that you voluntarily give to us when you register with the Service.
+**B. Location Data (android.permission.ACCESS_FINE_LOCATION)**
+- **Purpose:** We use location data to provide a "Nearby Clinics" feature.
+- **Usage:** This data helps us calculate the distance between you and healthcare providers. Your location is processed locally or sent to our servers only during a search query. We do not track your location in the background or store a history of your movements.
 
-### Clinic Data
+## 2. Data Storage and Security
+All personal and sensitive data is stored using industry-standard encryption protocols provided by Google Firebase and Supabase. We implement strict access controls to ensure your data remains confidential.
 
-If you are a clinic, we may collect information about your clinic, including its name, address, phone number, specialty, working hours, and other details you provide.
+## 3. Data Sharing
+We do not sell, trade, or rent your personal identification information to others. Data is only shared:
+- Between a Patient and a Clinic once an appointment is explicitly booked.
+- To comply with legal obligations.
 
-### Financial Data
+## 4. User Rights and Data Deletion
+Users have the right to access, update, or delete their information at any time. You can delete your account and all associated data directly through the "Settings" menu within the application.
 
-Financial information, such as data related to your payment method (e.g., valid credit card number, card brand, expiration date) that we may collect when you purchase, order, return, exchange, or request information about our services from the Service. We store only very limited, if any, financial information that we collect. Otherwise, all financial information is stored by our payment processor, Chargily, and you are encouraged to review their privacy policy and contact them directly for responses to your questions.
+## 5. Third-Party Services
+We use Firebase (Google) for authentication and data storage. Please refer to Google's Privacy Policy for how they handle data.
 
-### Geolocation Information
+## 6. Contact Us
+For any questions regarding this Privacy Policy or our data practices, please contact us:
+- **Email:** eyadati.dz@gmail.com
+- **WhatsApp:** +213562025180
 
-We may request access or permission to and track location-based information from your mobile device, either continuously or while you are using the Service, to provide location-based services, such as finding nearby clinics.
-
-### Data from Third-Party Services
-
-We use Firebase for authentication, database storage, and push notifications. We also use Supabase for additional backend services. These services may collect information about you.
-
-## How We Use Your Information
-
-Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the Service to:
-
-*   Create and manage your account.
-*   Process your payments and refunds.
-*   Email you regarding your account or order.
-*   Enable user-to-user communications.
-*   Fulfill and manage purchases, orders, payments, and other transactions related to the Service.
-*   Generate a personal profile about you to make future visits to the Service more personalized.
-*   Increase the efficiency and operation of the Service.
-*   Monitor and analyze usage and trends to improve your experience with the Service.
-*   Notify you of updates to the Service.
-*   Offer new products, services, and/or recommendations to you.
-*   Perform other business activities as needed.
-*   Request feedback and contact you about your use of the Service.
-*   Resolve disputes and troubleshoot problems.
-*   Respond to product and customer service requests.
-*   Send you a newsletter.
-*   Solicit support for the Service.
-
-## Disclosure of Your Information
-
-We may share information we have collected about you in certain situations. Your information may be disclosed as follows:
-
-### By Law or to Protect Rights
-
-If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others, we may share your information as permitted or required by any applicable law, rule, or regulation.
-
-### Third-Party Service Providers
-
-We may share your information with third parties that perform services for us or on our behalf, including payment processing, data analysis, email delivery, hosting services, customer service, and marketing assistance.
-
-Our Firebase server is located in `us-central1`.
-
-### Business Transfers
-
-We may share or transfer your information in connection with, or during negotiations of, any merger, sale of company assets, financing, or acquisition of all or a portion of our business to another company.
-
-## Data Security
-
-We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable, and no method of data transmission can be guaranteed against any interception or other type of misuse.
-
-## Your Rights
-
-You have the right to access, correct, or delete your personal information. You can do this by accessing your account settings within the application or by contacting us.
-
-## Children's Privacy
-
-We do not knowingly solicit information from or market to children under the age of 13. If you become aware of any data we have collected from children under age 13, please contact us using the contact information provided below.
-
-## Changes to This Policy
-
-We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.
-
-## Contact Us
-
-If you have questions or comments about this Privacy Policy, please contact us at [Your Contact Information].
+---
+© 2026 Eyadati. All rights reserved.

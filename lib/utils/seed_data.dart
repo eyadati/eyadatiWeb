@@ -158,11 +158,13 @@ class DataSeeder {
         // Add more manual mappings based on user feedback
         if (key == 'radiology' &&
             (currentSpecialty == 'Radiologist' ||
-                currentSpecialty == 'Radiology'))
+                currentSpecialty == 'Radiology')) {
           foundKey = 'radiology';
+        }
         if (key == 'surgery' &&
-            (currentSpecialty == 'Surgeon' || currentSpecialty == 'Surgery'))
+            (currentSpecialty == 'Surgeon' || currentSpecialty == 'Surgery')) {
           foundKey = 'surgery';
+        }
         // ... add others as discovered
       }
 

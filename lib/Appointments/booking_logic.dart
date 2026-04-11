@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -10,28 +11,11 @@ class BookingLogic extends ChangeNotifier {
   final FirebaseFirestore firestore;
 
   // In-memory cache for clinic data
-  final Map<String, Map<String, dynamic>> _clinicCache = {};
+  final Map<String, Clinic> _clinicCache = {};
 
   BookingLogic({FirebaseAuth? auth, FirebaseFirestore? firestore})
     : auth = auth ?? FirebaseAuth.instance,
       firestore = firestore ?? FirebaseFirestore.instance;
-
-  /// Fetches clinics by city with basic error handling
-  Future<List<Map<String, dynamic>>> cityClinics(String city) async {
-    try {
-      final snapshot = await firestore
-          .collection("clinics")
-          .where("city", isEqualTo: city)
-          .get(const GetOptions(source: Source.cache));
-
-      return snapshot.docs
-          .map((doc) => {"uid": doc.id, ...doc.data()})
-          .toList();
-    } catch (e) {
-      debugPrint("error_fetching_clinics".tr(args: [e.toString()]));
-      return [];
-    }
-  }
 
   /// Generates hourly slots for a specific day using a single Firestore query
   /// and in-memory processing for optimal performance
@@ -42,61 +26,46 @@ class BookingLogic extends ChangeNotifier {
   ) async {
     try {
       // Fetch and cache clinic data
-      final clinicData = await _getCachedClinicData(clinicUid);
-      if (clinicData == null) return [];
+      final clinic = await _getCachedClinic(clinicUid);
+      if (clinic == null) return [];
 
-      // SAFE PARSING HELPER
-      int parseInt(dynamic value, int defaultValue) {
-        if (value is int) return value;
-        if (value is double) return value.toInt();
-        if (value is String) return int.tryParse(value) ?? defaultValue;
-        return defaultValue;
-      }
-
-      final staffCount = parseInt(clinicData["staff"], 1);
-
-      final workingDays =
-          (clinicData["workingDays"] as List?)
-              ?.map((e) => parseInt(e, 0))
-              .toList() ??
-          [];
-
-      final openingMinutes = parseInt(clinicData["openingAt"], 0);
-      final closingMinutes = parseInt(clinicData["closingAt"], 0);
-      final breakStartMinutes = parseInt(clinicData["breakStart"], 0);
-      final breakEndMinutes = parseInt(
-        clinicData["breakEnd"] ?? clinicData["break"],
-        0,
-      );
+      final staffCount = clinic.staff;
+      final workingDays = clinic.workingDays;
+      final openingMinutes = clinic.openingAt;
+      final closingMinutes = clinic.closingAt;
+      final breakStartMinutes = clinic.breakStart;
+      final breakEndMinutes = clinic.breakEnd;
 
       // Check if clinic is open
       if (!workingDays.contains(day.weekday)) return [];
 
-      // Use UTC for consistent timezone handling
-      final utcDay = DateTime(day.year, day.month, day.day);
+      // Use local DateTime for consistent timezone handling with user app
+      final localDay = DateTime(day.year, day.month, day.day);
 
       // Generate time boundaries
-      final openingTime = utcDay.add(Duration(minutes: openingMinutes));
-      final closingTime = utcDay.add(Duration(minutes: closingMinutes));
-      final breakStart = utcDay.add(Duration(minutes: breakStartMinutes));
-      final breakEnd = utcDay.add(Duration(minutes: breakEndMinutes));
+      final openingTime = localDay.add(Duration(minutes: openingMinutes));
+      final closingTime = localDay.add(Duration(minutes: closingMinutes));
+      final breakStart = localDay.add(Duration(minutes: breakStartMinutes));
+      final breakEnd = localDay.add(Duration(minutes: breakEndMinutes));
 
       // Fetch ALL appointments for the day in a single query
       final dayAppointments = await firestore
           .collection("clinics")
           .doc(clinicUid)
           .collection("appointments")
-          .where("date", isGreaterThanOrEqualTo: Timestamp.fromDate(utcDay))
+          .where("date", isGreaterThanOrEqualTo: Timestamp.fromDate(localDay))
           .where(
             "date",
-            isLessThan: Timestamp.fromDate(utcDay.add(const Duration(days: 1))),
+            isLessThan: Timestamp.fromDate(localDay.add(const Duration(days: 1))),
           )
           .get();
 
       // Build slot occupancy map in memory
       final bookedSlots = <DateTime, int>{};
       for (var doc in dayAppointments.docs) {
-        final appointmentTime = (doc.data()["date"] as Timestamp).toDate();
+        final data = doc.data();
+        final appointmentTime = Clinic.parseDateTime(data["date"]);
+        // Normalize to local for slot key
         final slotKey = DateTime(
           appointmentTime.year,
           appointmentTime.month,
@@ -115,21 +84,19 @@ class BookingLogic extends ChangeNotifier {
 
       while (slotStart
           .add(Duration(minutes: slotDurationMinutes))
-          .isBefore(closingTime.add(Duration(minutes: 1)))) {
-        // Ensure last slot ends before or exactly at closing time
+          .isBefore(closingTime.add(const Duration(minutes: 1)))) {
         final slotEnd = slotStart.add(Duration(minutes: slotDurationMinutes));
 
-        // Skip if slot is entirely within the break, or overlaps significantly
+        // Skip if slot is during break
         final isDuringBreak =
             (slotStart.isBefore(breakEnd) && slotEnd.isAfter(breakStart));
         if (isDuringBreak) {
-          slotStart = slotEnd; // Move to the end of this potential slot
+          slotStart = slotEnd;
           continue;
         }
 
         // Skip if the slot is in the past
         if (slotEnd.isBefore(now)) {
-          // Use slotEnd to ensure the *entire* slot is in the past
           slotStart = slotEnd;
           continue;
         }
@@ -140,7 +107,7 @@ class BookingLogic extends ChangeNotifier {
           availableSlots.add(slotStart);
         }
 
-        slotStart = slotEnd; // Move to the next slot
+        slotStart = slotEnd;
       }
 
       return availableSlots;
@@ -151,15 +118,23 @@ class BookingLogic extends ChangeNotifier {
   }
 
   /// Gets cached clinic data or fetches from Firestore if not available
-  Future<Map<String, dynamic>?> _getCachedClinicData(String clinicUid) async {
+  Future<Clinic?> _getCachedClinic(String clinicUid) async {
     if (_clinicCache.containsKey(clinicUid)) {
       return _clinicCache[clinicUid];
     }
 
     final doc = await firestore.collection("clinics").doc(clinicUid).get();
-    if (doc.exists) {
-      _clinicCache[clinicUid] = doc.data()!;
+    if (doc.exists && doc.data() != null) {
+      final clinic = Clinic.fromMap(doc.data()!);
+      _clinicCache[clinicUid] = clinic;
+      return clinic;
     }
-    return doc.data();
+    return null;
+  }
+
+  /// Invalidate cache for a specific clinic
+  void refreshClinicData(String clinicUid) {
+    _clinicCache.remove(clinicUid);
+    notifyListeners();
   }
 }

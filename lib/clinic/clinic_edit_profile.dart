@@ -14,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_url_extractor/url_extractor.dart';
 import 'package:eyadati/clinic/clinic_firestore.dart';
 import 'package:eyadati/utils/connectivity_service.dart';
+import 'package:eyadati/utils/shimmer_loading.dart';
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
@@ -40,6 +41,7 @@ class ClinicEditProfileProvider extends ChangeNotifier {
   final addressController = TextEditingController();
   final phoneController = TextEditingController();
   final mapsLinkController = TextEditingController();
+  final doctorsController = TextEditingController();
 
   // State
   String? selectedCity;
@@ -98,6 +100,7 @@ class ClinicEditProfileProvider extends ChangeNotifier {
         addressController.text = data['address'] ?? '';
         phoneController.text = data['phone'] ?? '';
         mapsLinkController.text = data['mapsLink'] ?? '';
+        doctorsController.text = (data['staff'] ?? 1).toString();
         picUrl = data['picUrl'];
 
         selectedCity = data['city'] != null
@@ -222,6 +225,7 @@ class ClinicEditProfileProvider extends ChangeNotifier {
         breakEnd: breakEndMinutes ?? 0,
         picUrl: newPicUrl ?? picUrl ?? '',
         paused: false,
+        staff: int.tryParse(doctorsController.text) ?? 1,
         latitude: lat,
         longitude: lon,
       );
@@ -317,7 +321,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
       ),
       body: SafeArea(
         child: provider.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? _buildShimmerLoading(context)
             : provider.error != null
             ? _buildErrorState(context, provider)
             : Form(
@@ -327,7 +331,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSectionTitle(context, 'clinic information'.tr()),
+                      _buildSectionTitle(context, 'clinic_information'.tr()),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.clinicNameController,
@@ -343,9 +347,16 @@ class _ClinicEditProfileContent extends StatelessWidget {
                         provider,
                         inputType: TextInputType.number,
                       ),
+                      const SizedBox(height: 16),
+                      _buildTextFormField(
+                        provider.doctorsController,
+                        "number_of_doctors".tr(),
+                        provider,
+                        inputType: TextInputType.number,
+                      ),
                       const SizedBox(height: 32),
 
-                      _buildSectionTitle(context, 'owner information'.tr()),
+                      _buildSectionTitle(context, 'owner_information'.tr()),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.nameController,
@@ -361,7 +372,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 32),
 
-                      _buildSectionTitle(context, 'contact details'.tr()),
+                      _buildSectionTitle(context, 'contact_details'.tr()),
                       const SizedBox(height: 16),
                       _buildCityDropdown(context, provider),
                       const SizedBox(height: 16),
@@ -386,7 +397,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 32),
 
-                      _buildSectionTitle(context, 'working hours'.tr()),
+                      _buildSectionTitle(context, 'working_hours'.tr()),
                       const SizedBox(height: 16),
                       _buildTimePickerRow(
                         context,
@@ -425,7 +436,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       _buildWorkingDaysChips(context, provider),
                       const SizedBox(height: 32),
 
-                      _buildSectionTitle(context, 'clinic avatar'.tr()),
+                      _buildSectionTitle(context, 'clinic_avatar'.tr()),
                       _buildAvatarPicker(context, provider),
                       const SizedBox(height: 32),
 
@@ -445,19 +456,10 @@ class _ClinicEditProfileContent extends StatelessWidget {
                           onPressed: provider.isSaving
                               ? null
                               : () => provider.saveProfile(context),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                           child: provider.isSaving
-                              ? const SizedBox(
-                                  width: 20,
+                              ? const ShimmerLoading.rectangular(
+                                  width: 100,
                                   height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
                                 )
                               : Text(
                                   "save_changes".tr(),
@@ -470,6 +472,34 @@ class _ClinicEditProfileContent extends StatelessWidget {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerLoading(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerLoading.rectangular(width: 150, height: 24),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+          const SizedBox(height: 32),
+          const ShimmerLoading.rectangular(width: 150, height: 24),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+          const SizedBox(height: 32),
+          const ShimmerLoading.rectangular(width: 150, height: 24),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+          const SizedBox(height: 16),
+          const ShimmerLoading.rectangular(height: 56),
+        ],
       ),
     );
   }

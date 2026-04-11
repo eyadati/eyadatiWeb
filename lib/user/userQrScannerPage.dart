@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/NavBarUi/UserNavBar.dart';
+import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
 
 class UserQrScannerPage extends StatefulWidget {
   const UserQrScannerPage({super.key});

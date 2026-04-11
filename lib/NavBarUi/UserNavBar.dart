@@ -11,101 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:deferred_indexed_stack/deferred_indexed_stack.dart'; // flutter pub add deferred_indexed_stack
-import 'package:flutter_lucide_animated/flutter_lucide_animated.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:marquee/marquee.dart';
 import 'package:eyadati/utils/skeletons.dart';
-
-class UserNavBarProvider extends ChangeNotifier {
-  String _selected = "1";
-  String get selected => _selected;
-  FirebaseAuth auth = FirebaseAuth.instance;
-  FirebaseFirestore firestore = FirebaseFirestore.instance;
-
-  late Stream<List<Map<String, dynamic>>> favoriteClinicsStream;
-
-  UserNavBarProvider() {
-    _initFavoriteClinicsStream();
-  }
-
-  void _initFavoriteClinicsStream() {
-    final user = auth.currentUser;
-    if (user == null) {
-      favoriteClinicsStream = Stream.value([]);
-      return;
-    }
-
-    favoriteClinicsStream = firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('favorites')
-        .snapshots()
-        .map((snapshot) {
-          final clinics = snapshot.docs.map((doc) {
-            final data = doc.data();
-            return {
-              'uid': doc.id,
-              'clinicName': data['clinicName'],
-              'address': data['address'],
-              'specialty': data['specialty'],
-              'picUrl': data['picUrl'],
-              'favoritedTimestamp': data['timestamp'],
-            };
-          }).toList();
-
-          // Sort by favorited timestamp
-          clinics.sort((a, b) {
-            final Timestamp? timestampA = a['favoritedTimestamp'];
-            final Timestamp? timestampB = b['favoritedTimestamp'];
-
-            if (timestampA == null && timestampB == null) return 0;
-            if (timestampA == null) return 1;
-            if (timestampB == null) return -1;
-
-            return timestampB.compareTo(timestampA); // Newest first
-          });
-
-          return clinics;
-        });
-  }
-
-  Future<void> toggleFavorite(String clinicUid) async {
-    final user = auth.currentUser;
-    if (user == null) throw Exception('User not authenticated');
-
-    final favoriteDoc = firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('favorites')
-        .doc(clinicUid);
-
-    final docSnapshot = await favoriteDoc.get();
-
-    if (docSnapshot.exists) {
-      await favoriteDoc.delete();
-    } else {
-      final clinicDoc = await firestore
-          .collection('clinics')
-          .doc(clinicUid)
-          .get();
-      if (clinicDoc.exists) {
-        final clinicData = clinicDoc.data()!;
-        await favoriteDoc.set({
-          'timestamp': FieldValue.serverTimestamp(),
-          'clinicName': clinicData['clinicName'],
-          'address': clinicData['address'],
-          'specialty': clinicData['specialty'],
-          'picUrl': clinicData['picUrl'],
-        });
-      }
-    }
-  }
-
-  void select(String value) {
-    _selected = value;
-    notifyListeners();
-  }
-}
+import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
 
 // ✅ Using StatefulWidget to persist provider instance
 class UserFloatingBottomNavBar extends StatefulWidget {
@@ -199,10 +108,8 @@ class _BottomNavContent extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            LucideAnimatedIcon(
-              icon: value == "1" ? home : heart,
-              onTap: () => provider.select(value),
-              trigger: isSelected ? AnimationTrigger.loop : AnimationTrigger.onTap,
+            Icon(
+              value == "1" ? LucideIcons.home : LucideIcons.heart,
               color: color,
               size: 26,
             ),
@@ -262,26 +169,22 @@ class FavoritScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: StreamBuilder<List<Map<String, dynamic>>>(
-          stream: provider.favoriteClinicsStream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: Builder(
+          builder: (context) {
+            if (provider.isLoadingFavorites) {
               return ListView.builder(
                 itemCount: 3,
                 itemBuilder: (context, index) => const ClinicCardSkeleton(),
               );
             }
-            if (snapshot.hasError) {
-              return Center(child: Text('something_went_wrong'.tr()));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            if (provider.favorites.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       LucideIcons.heart,
-                      size: 64,
+                      size: 70,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(height: 16),
@@ -302,7 +205,7 @@ class FavoritScreen extends StatelessWidget {
               );
             }
 
-            final favClinics = snapshot.data!;
+            final favClinics = provider.favorites;
 
             return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -314,7 +217,7 @@ class FavoritScreen extends StatelessWidget {
                   ); // Adjust height to account for floating nav bar
                 }
                 final clinic = favClinics[index];
-                const isFav = true;
+                final isFav = provider.isFavorite(clinic['uid']);
 
                 return _ClinicCard(
                   clinic: clinic,
@@ -401,6 +304,32 @@ class _ClinicCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
+                      if (clinic['openingAt'] != null &&
+                          clinic['closingAt'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2.0),
+                          child: Text(
+                            '${_formatTime(clinic['openingAt'] as int)} - ${_formatTime(clinic['closingAt'] as int)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      if (clinic['workingDays'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2.0),
+                          child: Text(
+                            _formatWorkingDays(clinic['workingDays']),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                       Row(
                         children: [
                           Icon(
@@ -434,66 +363,101 @@ class _ClinicCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                child: ListTile(
-                  onTap: () => SlotsUi.showModalSheet(context, clinic),
-                  titleAlignment: ListTileTitleAlignment.center,
-                  title: Center(
-                    child: Text(
-                      "book_appointment".tr(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context).colorScheme.onPrimary,
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(
+                        left: 12,
+                        top: 12,
+                        bottom: 12,
+                        right: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      child: ListTile(
+                        onTap: () => SlotsUi.showModalSheet(context, clinic),
+                        titleAlignment: ListTileTitleAlignment.center,
+                        title: Center(
+                          child: Text(
+                            "book_appointment".tr(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                        trailing: Icon(
+                          LucideIcons.chevronRight,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
                       ),
                     ),
                   ),
-                  trailing: Icon(
-                    LucideIcons.chevronRight,
-                    color: Theme.of(context).colorScheme.onPrimary,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: IconButton(
+                      icon: Icon(
+                        size: 25,
+                        LucideIcons.heart,
+                        color: isFav
+                            ? Theme.of(context).colorScheme.error
+                            : Colors.grey.withAlpha((255 * 0.4).round()),
+                      ),
+                      onPressed: () async {
+                        try {
+                          await provider.toggleFavorite(clinic['uid']);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isFav
+                                    ? 'removed_from_favorites'.tr()
+                                    : 'added_to_favorites'.tr(),
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('error_generic'.tr())),
+                          );
+                        }
+                      },
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
-          if (showFavoriteButton)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: LucideAnimatedIcon(
-                icon: heart,
-                trigger: isFav ? AnimationTrigger.loop : AnimationTrigger.onTap,
-                color: isFav
-                    ? Theme.of(context).colorScheme.error
-                    : Colors.grey.withAlpha((255 * 0.4).round()),
-                onTap: () async {
-                  try {
-                    await provider.toggleFavorite(clinic['uid']);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isFav
-                              ? 'removed_from_favorites'.tr()
-                              : 'added_to_favorites'.tr(),
-                        ),
-                      ),
-                    );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('error_generic'.tr())),
-                    );
-                  }
-                },
-              ),
-            ),
         ],
       ),
     );
+  }
+
+  String _formatTime(int minutes) {
+    final hours = (minutes ~/ 60).toString().padLeft(2, '0');
+    final mins = (minutes % 60).toString().padLeft(2, '0');
+    return '$hours:$mins';
+  }
+
+  String _formatWorkingDays(dynamic workingDaysRaw) {
+    if (workingDaysRaw == null) return '';
+    final workingDays = List<int>.from(workingDaysRaw);
+    final dayNames = [
+      'monday'.tr(),
+      'tuesday'.tr(),
+      'wednesday'.tr(),
+      'thursday'.tr(),
+      'friday'.tr(),
+      'saturday'.tr(),
+      'sunday'.tr(),
+    ];
+    return workingDays
+        .where((d) => d >= 1 && d <= 7)
+        .map((d) => dayNames[d - 1])
+        .join(', ');
   }
 }

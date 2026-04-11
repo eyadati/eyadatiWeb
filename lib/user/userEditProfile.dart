@@ -67,32 +67,19 @@ class UserEditProfileProvider extends ChangeNotifier {
     final user = auth.currentUser;
     if (user == null) throw Exception('no_user_found'.tr());
 
-    // First, try to get data from cache
+    // Fetch data ONLY from server
     DocumentSnapshot doc = await firestore
         .collection('users')
         .doc(user.uid)
-        .get(GetOptions(source: Source.cache));
+        .get(const GetOptions(source: Source.server));
 
-    // If data is not in cache AND device is online, try to get from server (and cache)
-    if (!doc.exists && (_connectivityService?.isOnline == true)) {
-      doc = await firestore
-          .collection('users')
-          .doc(user.uid)
-          .get(GetOptions(source: Source.serverAndCache));
-      if (doc.exists) {
-        await _saveLastSyncTimestamp(
-          user.uid,
-        ); // Save timestamp after successful server fetch
-      }
-    } else if (!doc.exists && (_connectivityService?.isOnline == false)) {
-      // If offline and not in cache, we still don't have data
-      throw Exception('user_document_not_found_offline'.tr());
-    }
-
-    // If after all attempts, the document still doesn't exist, throw an exception
     if (!doc.exists) {
       throw Exception('user_document_not_found'.tr());
     }
+
+    await _saveLastSyncTimestamp(
+      user.uid,
+    ); // Save timestamp after successful server fetch
 
     final data = doc.data()! as Map<String, dynamic>;
     nameController.text = data['name'] ?? '';
@@ -240,14 +227,6 @@ class UserEditProfileView extends StatelessWidget {
                         provider.nameController,
                         'full_name'.tr(),
                         provider.validateRequired,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        provider.emailController,
-                        'email'.tr(),
-                        provider.validateEmail,
-                        readOnly: true,
-                        helperText: 'email_change_help'.tr(),
                       ),
                       const SizedBox(height: 24),
 

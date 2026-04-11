@@ -1,9 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eyadati/chargili/paiment.dart';
-import 'package:eyadati/clinic/clinicEditeProfile.dart';
-import 'package:eyadati/flow.dart';
+import 'package:eyadati/clinic/clinic_edit_profile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -14,6 +12,8 @@ import 'package:provider/provider.dart';
 import 'package:eyadati/clinic/clinic_firestore.dart';
 import 'package:eyadati/utils/markdown_viewer_screen.dart'; // Import the MarkdownViewerScreen
 import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
+import 'package:eyadati/intro.dart';
+import 'package:eyadati/Themes/ThemeProvider.dart' as theme_provider;
 
 class ClinicsettingProvider extends ChangeNotifier {
   bool _isPaused = false;
@@ -111,7 +111,26 @@ class Clinicsettings extends StatelessWidget {
                 SizedBox(height: 20),
                 Expanded(
                   child: SettingsList(
+                    lightTheme: SettingsThemeData(
+                      settingsListBackground: Theme.of(context).scaffoldBackgroundColor,
+                    ),
+                    darkTheme: SettingsThemeData(
+                      settingsListBackground: Theme.of(context).scaffoldBackgroundColor,
+                    ),
                     sections: [
+                      SettingsSection(
+                        title: Text("appearance".tr()),
+                        tiles: [
+                          SettingsTile.switchTile(
+                            onToggle: (value) {
+                              Provider.of<theme_provider.ThemeProvider>(context, listen: false).toggleTheme();
+                            },
+                            initialValue: Provider.of<theme_provider.ThemeProvider>(context).isDarkMode,
+                            leading: const Icon(LucideIcons.moon),
+                            title: Text("dark_mode".tr()),
+                          ),
+                        ],
+                      ),
                       SettingsSection(
                         tiles: [
                           SettingsTile.navigation(
@@ -218,8 +237,8 @@ class Clinicsettings extends StatelessWidget {
                             },
                           ),
                           SettingsTile.navigation(
-                            title: Text("subscription".tr()),
-                            leading: Icon(LucideIcons.user),
+                            title: Text("payment".tr()),
+                            leading: Icon(LucideIcons.creditCard),
                             onPressed: (_) => showMaterialModalBottomSheet(
                               expand: true,
                               context: context,
@@ -227,53 +246,6 @@ class Clinicsettings extends StatelessWidget {
                                 return SubscribeScreen();
                               },
                             ),
-                          ),
-                          SettingsTile.navigation(
-                            title: Text("subscription_info".tr()),
-                            leading: Icon(LucideIcons.info),
-                            onPressed: (context) async {
-                              final data = await clinicSettingProvider
-                                  ._clinicFirestore
-                                  .getClinicData(clinicUid!);
-                              if (data == null || !context.mounted) return;
-
-                              final endDate =
-                                  (data['subscriptionEndDate'] as Timestamp?)
-                                      ?.toDate();
-                              final staffCount = data['staff'] ?? 1;
-                              final formattedDate = endDate != null
-                                  ? DateFormat.yMMMMd(
-                                      context.locale.toString(),
-                                    ).format(endDate)
-                                  : 'n/a'.tr();
-
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text("subscription_info".tr()),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "${"subscription_end".tr()}: $formattedDate",
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "${"number_of_doctors".tr()}: $staffCount",
-                                      ),
-                                    ],
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text("close".tr()),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
                           ),
                           SettingsTile.navigation(
                             title: Text("reset_password".tr()),
@@ -355,7 +327,7 @@ class Clinicsettings extends StatelessWidget {
                               FirebaseAuth.instance.signOut();
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (ctx) => intro(ctx)),
+                                MaterialPageRoute(builder: (ctx) => const IntroScreen()),
                                 (route) => false,
                               );
                             },
@@ -448,7 +420,7 @@ class Clinicsettings extends StatelessWidget {
                                             Navigator.pushAndRemoveUntil(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (ctx) => intro(ctx),
+                                                builder: (ctx) => intro(),
                                               ),
                                               (route) => false,
                                             );

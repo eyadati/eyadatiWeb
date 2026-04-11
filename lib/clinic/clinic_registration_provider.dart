@@ -45,6 +45,8 @@ class ClinicOnboardingProvider extends ChangeNotifier {
 
   final phoneController = TextEditingController();
 
+  final doctorsController = TextEditingController(text: "1");
+
   // State
 
   File? pickedImage;
@@ -293,17 +295,17 @@ class ClinicOnboardingProvider extends ChangeNotifier {
 
     if (_selectedCity == null) {
       if (!context.mounted) return false;
-      _showSnackBar(context, "Please select a city".tr());
+      _showSnackBar(context, "please_select_city".tr());
       return false;
     }
     if (selectedSpecialty == null) {
       if (!context.mounted) return false;
-      _showSnackBar(context, "Please select a specialty".tr());
+      _showSnackBar(context, "please_select_specialty".tr());
       return false;
     }
     if (workingDays.isEmpty) {
       if (!context.mounted) return false;
-      _showSnackBar(context, "Please select at least one working day".tr());
+      _showSnackBar(context, "please_select_working_days".tr());
       return false;
     }
 
@@ -312,7 +314,7 @@ class ClinicOnboardingProvider extends ChangeNotifier {
       if (!context.mounted) return false;
       _showSnackBar(
         context,
-        "Please agree to the terms and privacy policy".tr(),
+        "please_agree_to_terms".tr(),
       );
       return false;
     }
@@ -346,8 +348,9 @@ class ClinicOnboardingProvider extends ChangeNotifier {
 
       // Step 2: Create Firestore Document
       // Get ConnectivityService before any async calls that might invalidate context
-      if (!context.mounted)
+      if (!context.mounted) {
         return false; // Ensure context is mounted before accessing provider
+      }
       final connectivityService = Provider.of<ConnectivityService>(
         context,
         listen: false,
@@ -375,6 +378,7 @@ class ClinicOnboardingProvider extends ChangeNotifier {
           addressController.text.trim(),
           extractedLatitude,
           extractedLongitude,
+          int.tryParse(doctorsController.text) ?? 1,
         );
       } catch (e) {
         await user.delete();

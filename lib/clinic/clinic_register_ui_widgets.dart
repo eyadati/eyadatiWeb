@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/clinic/clinicRegisterUi.dart';
-import 'package:eyadati/clinic/clinicHome.dart';
+import 'package:eyadati/clinic/clinic_registration_provider.dart';
+import 'package:eyadati/clinic/clinic_home.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
@@ -98,6 +98,15 @@ class _FormPage extends StatelessWidget {
               inputType: TextInputType.number,
               focusNode: provider.focusNodes[4],
               nextNode: provider.focusNodes[5],
+            ),
+            const SizedBox(height: 16),
+            _buildTextFormField(
+              context,
+              controller: provider.doctorsController,
+              label: 'number_of_doctors'.tr(),
+              inputType: TextInputType.number,
+              focusNode: provider.focusNodes[5],
+              nextNode: provider.focusNodes[6],
             ),
             const SizedBox(height: 32),
 
@@ -216,9 +225,6 @@ class _FormPage extends StatelessWidget {
                           );
                         }
                       },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
                 child: provider.isSubmitting
                     ? _buildButtonProgress()
                     : Text("complete_setup".tr()),
@@ -318,10 +324,11 @@ Widget _buildSpecialtyDropdown(
   return DropdownButtonFormField<String>(
     initialValue: provider.selectedSpecialty,
     decoration: InputDecoration(
-      labelText: "Specialty".tr(),
+      labelText: "specialty".tr(),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-    hint: Text("Select Specialty".tr()),
+      ),
+      hint: Text("select_specialty".tr()),
+
     onChanged: provider.selectSpecialty,
     validator: (value) {
       if (value == null || value.isEmpty) {

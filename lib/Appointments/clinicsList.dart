@@ -1,17 +1,15 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/Appointments/slotsUi.dart';
-import 'package:eyadati/NavBarUi/UserNavBar.dart';
+import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
 import 'package:eyadati/utils/constants.dart';
 import 'package:eyadati/utils/location_helper.dart';
 import 'package:eyadati/utils/skeletons.dart';
+import 'package:eyadati/utils/widgets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:marquee/marquee.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
@@ -176,7 +174,7 @@ class ClinicSearchProvider extends ChangeNotifier {
           query = query.startAfterDocument(_lastDocument!);
         }
 
-        final snapshot = await query.limit(_limit).get();
+        final snapshot = await query.limit(_limit).get(const GetOptions(source: Source.serverAndCache));
         if (snapshot.docs.length < _limit) _hasMore = false;
         if (snapshot.docs.isNotEmpty) _lastDocument = snapshot.docs.last;
 
@@ -327,8 +325,9 @@ class _InitialFilterDialogState extends State<_InitialFilterDialog> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ClinicSearchProvider>();
-    if (_tempCity == null && provider.userCity != null)
+    if (_tempCity == null && provider.userCity != null) {
       _tempCity = provider.userCity;
+    }
 
     return AlertDialog(
       title: Text('find_clinics'.tr()),
@@ -530,7 +529,7 @@ class _ClinicBottomSheetContent extends StatelessWidget {
           );
         }
         final clinic = provider.currentClinics[index];
-        return _ClinicCard(
+        return ClinicCard(
           clinic: clinic,
           distance: clinic['distance'] as double?,
         );
@@ -587,159 +586,4 @@ class _ClinicBottomSheetContent extends StatelessWidget {
   }
 }
 
-class _ClinicCard extends StatelessWidget {
-  final Map<String, dynamic> clinic;
-  final double? distance;
 
-  const _ClinicCard({required this.clinic, this.distance});
-
-  @override
-  Widget build(BuildContext context) {
-    final navProvider = context.watch<UserNavBarProvider>();
-    final picUrl = clinic['picUrl'] as String?;
-    final image = (picUrl != null && picUrl.startsWith('http'))
-        ? CachedNetworkImageProvider(picUrl)
-        : (picUrl != null ? AssetImage(picUrl) : null) as ImageProvider?;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundImage: image,
-                      child: picUrl == null
-                          ? const Icon(LucideIcons.home)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            height: 25,
-                            child: Marquee(
-                              text:
-                                  clinic['clinicName'] ?? 'unnamed_clinic'.tr(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              scrollAxis: Axis.horizontal,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              blankSpace: 20.0,
-                              velocity: 30.0,
-                              pauseAfterRound: const Duration(seconds: 2),
-                              startPadding: 0.0,
-                              accelerationDuration: const Duration(seconds: 1),
-                              accelerationCurve: Curves.linear,
-                              decelerationDuration: const Duration(
-                                milliseconds: 500,
-                              ),
-                              decelerationCurve: Curves.easeOut,
-                            ),
-                          ),
-                          Text(
-                            (clinic['specialty'] as String?)?.tr() ??
-                                'general'.tr(),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Icon(
-                                LucideIcons.mapPin,
-                                size: 14,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 20,
-                                  child: Marquee(
-                                    text:
-                                        "${clinic['address'] ?? ''}, ${clinic['city'] ?? ''}",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                    scrollAxis: Axis.horizontal,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    blankSpace: 20.0,
-                                    velocity: 25.0,
-                                    pauseAfterRound: const Duration(seconds: 2),
-                                    startPadding: 0.0,
-                                    accelerationDuration: const Duration(
-                                      seconds: 1,
-                                    ),
-                                    accelerationCurve: Curves.linear,
-                                    decelerationDuration: const Duration(
-                                      milliseconds: 500,
-                                    ),
-                                    decelerationCurve: Curves.easeOut,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (distance != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2.0),
-                              child: Text(
-                                '${(distance! / 1000).toStringAsFixed(1)} km',
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 45),
-                  ),
-                  onPressed: () => SlotsUi.showModalSheet(context, clinic),
-                  child: Text('book_appointment'.tr()),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: navProvider.favoriteClinicsStream,
-              builder: (context, snapshot) {
-                final isFav =
-                    snapshot.hasData &&
-                    snapshot.data!.any((c) => c['uid'] == clinic['id']);
-                return IconButton(
-                  icon: Icon(
-                    Icons.favorite,
-                    color: isFav ? Colors.red : Colors.grey.withAlpha(100),
-                  ),
-                  onPressed: () => navProvider.toggleFavorite(clinic['id']),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

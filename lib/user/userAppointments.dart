@@ -1,4 +1,4 @@
-import 'package:eyadati/NavBarUi/UserNavBar.dart';
+import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
 import 'package:eyadati/user/userSettingsPage.dart';
 import 'package:eyadati/user/user_appointments.dart';
 import 'package:eyadati/Appointments/clinicsList.dart';

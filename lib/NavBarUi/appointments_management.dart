@@ -1,20 +1,22 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:eyadati/Appointments/booking_logic.dart';
+import 'package:eyadati/clinic/clinic_firestore.dart';
+import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ManagementProvider extends ChangeNotifier {
   final String clinicUid;
   final FirebaseFirestore firestore;
 
   // In-memory manual appointments: key is "yyyy-MM-ddTHH:mm" in UTC
-  final Map<String, int> _manualAppointments = {};
+  final Map<String, List<Map<String, dynamic>>> _manualAppointments = {};
 
-  // Real appointment counts from database
-  final Map<String, int> _realAppointmentsCount = {};
+  // Online appointment counts from database
+  final Map<String, int> _onlineAppointmentsCount = {};
 
   // Clinic configuration cache
   Map<String, dynamic>? _clinicData;
@@ -28,9 +30,6 @@ class ManagementProvider extends ChangeNotifier {
   bool _isLoading = true;
   String? _errorMessage;
   int _currentPageIndex = 0; // New: Current page index for PageView
-
-  // SharedPreferences prefix for manual appointments (scoped per clinic)
-  static const String _prefsPrefix = "manual_slot_";
 
   ManagementProvider({required this.clinicUid, FirebaseFirestore? firestore})
     : firestore = firestore ?? FirebaseFirestore.instance {
@@ -83,7 +82,6 @@ class ManagementProvider extends ChangeNotifier {
       notifyListeners();
 
       await _fetchClinicData();
-      await _loadManualAppointments(); // Load saved manual appointments first
       await _generateWeekSlots();
       if (_visibleDays.isNotEmpty) {
         await _fetchAllAppointments();
@@ -106,75 +104,6 @@ class ManagementProvider extends ChangeNotifier {
       _clinicData = doc.data();
     } else {
       throw Exception("Clinic not found");
-    }
-  }
-
-  Future<void> _loadManualAppointments() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys().where((key) => key.startsWith(_prefsPrefix));
-
-      _manualAppointments.clear();
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      for (String key in keys) {
-        // Key format: "manual_slot_{clinicUid}_{slotKey}"
-        final parts = key.split('_');
-        if (parts.length >= 4 && parts[2] == clinicUid) {
-          final slotKey = parts
-              .sublist(3)
-              .join('_'); // Reconstruct slot key (yyyy-MM-ddTHH:mmZ)
-
-          // Parse the date from slot key
-          try {
-            final dateTime = DateTime.parse(slotKey);
-            // Convert to local for day comparison with 'today'
-            final localDateTime = dateTime.toLocal();
-            final slotDate = DateTime(
-              localDateTime.year,
-              localDateTime.month,
-              localDateTime.day,
-            );
-
-            // Only load if not in the past
-            if (!slotDate.isBefore(today)) {
-              final count = prefs.getInt(key) ?? 0;
-              if (count > 0) {
-                _manualAppointments[slotKey] = count;
-              }
-            } else {
-              // Clean up old entries automatically
-              await prefs.remove(key);
-            }
-          } catch (e) {
-            debugPrint("Error parsing slot key $slotKey: $e");
-            await prefs.remove(key);
-          }
-        }
-      }
-      debugPrint(
-        "Loaded ${_manualAppointments.length} manual appointments for clinic $clinicUid",
-      );
-    } catch (e) {
-      debugPrint("Error loading manual appointments: $e");
-      // Continue without manual appointments if loading fails
-    }
-  }
-
-  Future<void> _saveManualAppointment(String slotKey, int count) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final prefsKey = "$_prefsPrefix${clinicUid}_$slotKey";
-
-      if (count > 0) {
-        await prefs.setInt(prefsKey, count);
-      } else {
-        await prefs.remove(prefsKey);
-      }
-    } catch (e) {
-      debugPrint("Error saving manual appointment: $e");
-      // Fail silently - data will be in memory but not persisted
     }
   }
 
@@ -229,12 +158,25 @@ class ManagementProvider extends ChangeNotifier {
         .where("date", isLessThan: Timestamp.fromDate(endDate))
         .get();
 
-    _realAppointmentsCount.clear();
+    _onlineAppointmentsCount.clear();
+    _manualAppointments.clear();
+
     for (var doc in snapshot.docs) {
-      final appointmentTime = (doc.data()["date"] as Timestamp).toDate();
+      final data = doc.data();
+      final appointmentTime = Clinic.parseDateTime(data["date"]);
       final slotKey = _getSlotKey(appointmentTime);
-      _realAppointmentsCount[slotKey] =
-          (_realAppointmentsCount[slotKey] ?? 0) + 1;
+      final isManual = data['isManual'] == true;
+
+      if (isManual) {
+        if (!_manualAppointments.containsKey(slotKey)) {
+          _manualAppointments[slotKey] = [];
+        }
+        data['docId'] = doc.id;
+        _manualAppointments[slotKey]!.add(data);
+      } else {
+        _onlineAppointmentsCount[slotKey] =
+            (_onlineAppointmentsCount[slotKey] ?? 0) + 1;
+      }
     }
   }
 
@@ -246,17 +188,17 @@ class ManagementProvider extends ChangeNotifier {
 
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
-  int getRealAppointmentsForSlot(DateTime slot) {
-    return _realAppointmentsCount[_getSlotKey(slot)] ?? 0;
+  int getOnlineAppointmentsForSlot(DateTime slot) {
+    return _onlineAppointmentsCount[_getSlotKey(slot)] ?? 0;
   }
 
-  int getManualAppointmentsForSlot(DateTime slot) {
-    return _manualAppointments[_getSlotKey(slot)] ?? 0;
+  List<Map<String, dynamic>> getManualAppointmentsForSlot(DateTime slot) {
+    return _manualAppointments[_getSlotKey(slot)] ?? [];
   }
 
   int getTotalAppointmentsForSlot(DateTime slot) {
-    return getRealAppointmentsForSlot(slot) +
-        getManualAppointmentsForSlot(slot);
+    return getOnlineAppointmentsForSlot(slot) +
+        getManualAppointmentsForSlot(slot).length;
   }
 
   int getStaffCount() {
@@ -268,34 +210,37 @@ class ManagementProvider extends ChangeNotifier {
     return getTotalAppointmentsForSlot(slot) >= getStaffCount();
   }
 
-  bool canDecreaseManual(DateTime slot) =>
-      getManualAppointmentsForSlot(slot) > 0;
-  bool canIncreaseManual(DateTime slot) => !isSlotFull(slot);
-
-  void increaseManualAppointments(DateTime slot) {
-    if (!canIncreaseManual(slot)) return;
-    final key = _getSlotKey(slot);
-    _manualAppointments[key] = (_manualAppointments[key] ?? 0) + 1;
-    _saveManualAppointment(
-      key,
-      _manualAppointments[key]!,
-    ); // Persist immediately
+  Future<void> addManualAppointment(DateTime slot, String name, String phone) async {
+    if (isSlotFull(slot)) return;
+    
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      await ClinicFirestore().addManualAppointment(
+        clinicId: clinicUid,
+        name: name,
+        phone: phone,
+        date: slot,
+      );
+      await _fetchAllAppointments();
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  void decreaseManualAppointments(DateTime slot) {
-    if (!canDecreaseManual(slot)) return;
-    final key = _getSlotKey(slot);
-    _manualAppointments[key] = (_manualAppointments[key] ?? 0) - 1;
-    if (_manualAppointments[key]! <= 0) {
-      _manualAppointments.remove(key);
-      _saveManualAppointment(key, 0); // Remove from persistence
-    } else {
-      _saveManualAppointment(
-        key,
-        _manualAppointments[key]!,
-      ); // Update persistence
-    }
+  void removeManualAppointment(String docId) async {
+    await firestore
+        .collection("clinics")
+        .doc(clinicUid)
+        .collection("appointments")
+        .doc(docId)
+        .delete();
+    await _fetchAllAppointments();
     notifyListeners();
   }
 
@@ -587,12 +532,10 @@ class _ManagementScreenState extends State<ManagementScreen> {
     ManagementProvider provider,
     DateTime slot,
   ) {
-    final manualCount = provider.getManualAppointmentsForSlot(slot);
+    final manualAppointments = provider.getManualAppointmentsForSlot(slot);
     final totalCount = provider.getTotalAppointmentsForSlot(slot);
     final staffCount = provider.getStaffCount();
     final isFull = provider.isSlotFull(slot);
-    final canDecrease = provider.canDecreaseManual(slot);
-    final canIncrease = provider.canIncreaseManual(slot);
     final displayText = provider.getSlotDisplayText(slot);
 
     return Card(
@@ -601,127 +544,123 @@ class _ManagementScreenState extends State<ManagementScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isFull
-            ? BorderSide(color: Theme.of(context).colorScheme.error, width: 2)
+            ? BorderSide(
+                color: Theme.of(context).colorScheme.primary.withAlpha(100),
+                width: 2,
+              )
             : BorderSide(
                 color: Theme.of(context).colorScheme.outlineVariant,
                 width: 1,
               ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ExpansionTile(
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        leading: IconButton(
+          icon: Icon(
+            LucideIcons.plusCircle,
+            color: isFull ? Colors.grey : Theme.of(context).colorScheme.primary,
+          ),
+          onPressed: isFull
+              ? null
+              : () => _showAddManualDialog(context, provider, slot),
+        ),
+        title: Text(
+          displayText,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isFull
+                    ? Theme.of(context).colorScheme.primary.withAlpha(200)
+                    : null,
+              ),
+        ),
+        subtitle: Text(
+          "$totalCount / $staffCount ${'appointments'.tr()} (${provider.getOnlineAppointmentsForSlot(slot)} Online, ${manualAppointments.length} Manual)",
+          style: TextStyle(
+            fontSize: 12,
+            color: isFull
+                ? Theme.of(context).colorScheme.primary.withAlpha(180)
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: const Icon(LucideIcons.chevronDown),
+        children: [
+          if (manualAppointments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                "no_manual_appointments".tr(),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            ...manualAppointments.asMap().entries.map((entry) {
+              final index = entry.key;
+              final app = entry.value;
+              return _buildManualAppointmentTile(
+                context,
+                provider,
+                slot,
+                app,
+                index,
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManualAppointmentTile(
+    BuildContext context,
+    ManagementProvider provider,
+    DateTime slot,
+    Map<String, dynamic> app,
+    int index,
+  ) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withAlpha(50),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(
+          app['userName'] ?? '',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(
+          app['phone'] ?? '',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Time slot header
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.clock,
-                  size: 20,
-                  color: isFull
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  displayText,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isFull ? Theme.of(context).colorScheme.error : null,
-                  ),
-                ),
-                const Spacer(),
-                if (isFull) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      "full".tr(),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            IconButton(
+              icon: const Icon(
+                LucideIcons.phone,
+                color: Colors.green,
+                size: 20,
+              ),
+              onPressed: () async {
+                final Uri launchUri = Uri(scheme: 'tel', path: app['phone'] ?? '');
+                if (await canLaunchUrl(launchUri)) {
+                  await launchUrl(launchUri);
+                }
+              },
             ),
-            const SizedBox(height: 12),
-            // Appointments info and controls
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Appointment counts
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "appointments".tr(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "$totalCount / $staffCount",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isFull
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          if (manualCount > 0) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              "Manual: +$manualCount",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Counter buttons
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildCounterButton(
-                      LucideIcons.minus,
-                      Theme.of(context).colorScheme.error,
-                      canDecrease,
-                      () => provider.decreaseManualAppointments(slot),
-                      context,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildCounterButton(
-                      LucideIcons.plus,
-                      Theme.of(context).colorScheme.primary,
-                      canIncrease,
-                      () => provider.increaseManualAppointments(slot),
-                      context,
-                    ),
-                  ],
-                ),
-              ],
+            IconButton(
+              icon: Icon(
+                LucideIcons.trash2,
+                color: Theme.of(context).colorScheme.error,
+                size: 20,
+              ),
+              onPressed: () => provider.removeManualAppointment(app['docId']),
             ),
           ],
         ),
@@ -729,35 +668,60 @@ class _ManagementScreenState extends State<ManagementScreen> {
     );
   }
 
-  Widget _buildCounterButton(
-    IconData icon,
-    Color color,
-    bool enabled,
-    VoidCallback? onTap,
+  void _showAddManualDialog(
     BuildContext context,
+    ManagementProvider provider,
+    DateTime slot,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: enabled
-            ? color.withAlpha((255 * 0.1).round())
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: enabled
-              ? color.withAlpha((255 * 0.3).round())
-              : Theme.of(context).colorScheme.outlineVariant,
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("add_manual_appointment".tr()),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: "full_name".tr()),
+                validator: (v) =>
+                    v == null || v.isEmpty ? "required".tr() : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: phoneController,
+                decoration: InputDecoration(labelText: "phone_number".tr()),
+                keyboardType: TextInputType.phone,
+                validator: (v) =>
+                    v == null || v.isEmpty ? "required".tr() : null,
+              ),
+            ],
+          ),
         ),
-      ),
-      child: IconButton(
-        icon: Icon(icon),
-        onPressed: onTap,
-        color: enabled ? color : Theme.of(context).colorScheme.onSurfaceVariant,
-        disabledColor: Theme.of(
-          context,
-        ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
-        iconSize: 20,
-        padding: const EdgeInsets.all(8),
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("cancel".tr()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                provider.addManualAppointment(
+                  slot,
+                  nameController.text,
+                  phoneController.text,
+                );
+                Navigator.pop(context);
+              }
+            },
+            child: Text("confirm".tr()),
+          ),
+        ],
       ),
     );
   }

@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:eyadati/FCM/notificationsService.dart';
+import 'package:eyadati/FCM/notifications_service.dart';
 import 'package:eyadati/user/user_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:marquee/marquee.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
+import 'package:eyadati/utils/skeletons.dart';
 
 // Represents a combined appointment and its associated clinic data
 class AppointmentWithClinic {
@@ -29,6 +31,14 @@ class UserAppointmentsProvider extends ChangeNotifier {
   final ConnectivityService? _connectivityService;
 
   StreamSubscription? _appointmentsSubscription;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
 
   List<AppointmentWithClinic> _appointments = [];
   List<AppointmentWithClinic> get appointments => _appointments;
@@ -132,12 +142,14 @@ class UserAppointmentsProvider extends ChangeNotifier {
           final clinicsSnapshot = await firestore
               .collection('clinics')
               .where(FieldPath.documentId, whereIn: batchUids)
-              .get();
+              .get(const GetOptions(source: Source.serverAndCache));
           for (var doc in clinicsSnapshot.docs) {
             _clinicCache[doc.id] = doc.data();
           }
         }
       }
+
+      if (_disposed) return;
 
       // Combine appointments with cached clinic data
       final newAppointments = <AppointmentWithClinic>[];
@@ -172,9 +184,9 @@ class UserAppointmentsProvider extends ChangeNotifier {
     try {
       await _userFirestore.cancelAppointment(appointmentId, userId);
 
-      if (clinicData['FCM'] != null) {
+      if (clinicData['fcm'] != null) {
         await _notificationService.sendDirectNotification(
-          fcmToken: clinicData['FCM'],
+          fcmToken: clinicData['fcm'],
           title: 'appointment_cancelled'.tr(),
           body: 'the_appointment_got_cancelled'.tr(),
         );
@@ -191,6 +203,7 @@ class UserAppointmentsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _appointmentsSubscription?.cancel();
     _connectivityService?.removeListener(_onConnectivityChanged);
     super.dispose();
@@ -248,7 +261,10 @@ class _AppointmentsListViewState extends State<_AppointmentsListView>
     final provider = context.watch<UserAppointmentsProvider>();
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView.builder(
+        itemCount: 5,
+        itemBuilder: (context, index) => const AppointmentCardSkeleton(),
+      );
     }
 
     if (provider.appointments.isEmpty) {
@@ -359,6 +375,7 @@ class _AppointmentCard extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () async {
+              HapticFeedback.warningNotification();
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -458,7 +475,7 @@ class _AppointmentCard extends StatelessWidget {
       height: isTitle ? 35 : 30,
       child: Row(
         children: [
-          Text("$label: "),
+          Text("${label.tr()}: "),
           Expanded(
             child: Marquee(
               text: value,
