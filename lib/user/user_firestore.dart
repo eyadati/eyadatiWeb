@@ -1,9 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:eyadati/utils/connectivity_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/widgets.dart';
 
 class UserFirestore {
@@ -24,7 +23,7 @@ class UserFirestore {
   }
 
   Future<void> addUser(String name, String phone, String city) async {
-    final fcm = await FirebaseMessaging.instance.getToken();
+    final fcm = null;
     collection.doc(user?.uid).set({
       "name": name,
       "phone": phone,
@@ -65,7 +64,7 @@ class UserFirestore {
   }
 
   Future<void> updateUser(String name, String phone, String city) async {
-    final fcm = await FirebaseMessaging.instance.getToken();
+    final fcm = null;
     collection.doc(user?.uid).set({
       "name": name,
       "phone": phone,

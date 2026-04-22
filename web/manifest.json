@@ -1,22 +1,51 @@
 {
-    "name": "Eyadati - Medical Appointments",
+    "name": "Eyadati - مواعيد طبية",
     "short_name": "Eyadati",
     "start_url": "./",
     "display": "standalone",
+    "display_override": [
+        "standalone",
+        "fullscreen"
+    ],
     "background_color": "#ffffff",
     "theme_color": "#0175C2",
-    "description": "Book medical appointments easily across Algeria.",
-    "orientation": "portrait-primary",
+    "description": "احجز مواعيدك الطبية بسهولة في الجزائر",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": [
+        "medical",
+        "health",
+        "productivity"
+    ],
     "shortcuts": [
         {
-            "name": "My Appointments",
-            "short_name": "Appointments",
-            "description": "View your upcoming medical visits",
+            "name": "مواعيدي",
+            "short_name": "المواعيد",
+            "description": "عرض زياراتك الطبية القادمة",
             "url": "./#/appointments",
-            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+            "icons": [
+                {
+                    "src": "icons/Icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "البحث عن عيادات",
+            "short_name": "العيادات",
+            "description": "البحث عن عيادات قريبة",
+            "url": "./#/clinics",
+            "icons": [
+                {
+                    "src": "icons/Icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
         }
     ],
+    "screenshots": [],
+    "related_applications": [],
+    "scope": "./",
     "icons": [
         {
             "src": "icons/Icon-192.png",

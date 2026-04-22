@@ -140,10 +140,7 @@ class FavoritScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: context.read<UserNavBarProvider>(),
-                    child: const UserQrScannerPage(),
-                  ),
+                  builder: (_) => const UserQrScannerPage(),
                 ),
               );
             },

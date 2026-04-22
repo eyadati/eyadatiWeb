@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:rxdart/rxdart.dart';
 
 class AppStartupService {
@@ -42,7 +41,6 @@ class AppStartupService {
         await ClinicFirestore().ensureClinicProfileIntegrity(_userId!);
       }
       await Future.wait([
-        _checkAndUpdateFCMToken(),
         if (isClinic) _setupClinicStream() else _cacheUserData(),
       ]);
     } catch (e) {
@@ -70,41 +68,6 @@ class AppStartupService {
         .listen((clinic) {
           _clinicSubject.add(clinic);
         });
-  }
-  /// Checks and updates FCM token if it changed
-  Future<void> _checkAndUpdateFCMToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final messaging = FirebaseMessaging.instance;
-    final firestore = FirebaseFirestore.instance;
-
-    final currentToken = await messaging.getToken();
-    if (currentToken == null) return;
-
-    final savedToken = prefs.getString('fcm_token_$_userId');
-
-    if (savedToken != currentToken) {
-      // Determine user type
-      final isClinic = await _isClinicRole();
-      final collection = isClinic ? 'clinics' : 'users';
-
-      await firestore.collection(collection).doc(_userId).update({
-        'fcm': currentToken,
-        'fcmUpdatedAt': FieldValue.serverTimestamp(),
-      });
-
-      await prefs.setString('fcm_token_$_userId', currentToken);
-      debugPrint("✅ FCM token updated for $_userId");
-    } else {
-      debugPrint("✅ FCM token unchanged, no update needed");
-    }
-  }
-
-  Future<bool> _isClinicRole() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('clinics')
-        .doc(_userId)
-        .get(GetOptions(source: Source.serverAndCache));
-    return doc.exists;
   }
 
   Future<void> _cacheUserData() async {

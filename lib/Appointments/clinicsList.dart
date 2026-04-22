@@ -3,13 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
 import 'package:eyadati/utils/constants.dart';
-import 'package:eyadati/utils/location_helper.dart';
+import 'package:eyadati/utils/location_helper.dart' as loc;
 import 'package:eyadati/utils/skeletons.dart';
 import 'package:eyadati/utils/widgets.dart';
 import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
@@ -22,7 +21,7 @@ class ClinicSearchProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String? _userCity;
-  Position? _currentLocation;
+  loc.Position? _currentLocation;
 
   // Filter states
   String _searchQuery = '';
@@ -81,7 +80,7 @@ class ClinicSearchProvider extends ChangeNotifier {
     }
 
     try {
-      _currentLocation = await LocationHelper.getCurrentLocation();
+      _currentLocation = await loc.LocationHelper.getCurrentLocation();
       if (_currentLocation != null && !silent) {
         // Refresh clinics with distance if requested manually
         fetchClinics();
@@ -150,7 +149,7 @@ class ClinicSearchProvider extends ChangeNotifier {
               (data['position'] as Map<String, dynamic>)['geopoint']
                   as GeoPoint?;
           if (geoPoint != null) {
-            dist = Geolocator.distanceBetween(
+            dist = loc.LocationHelper.calculateDistanceSync(
               _currentLocation!.latitude,
               _currentLocation!.longitude,
               geoPoint.latitude,
@@ -453,22 +452,27 @@ class _ClinicBottomSheetContent extends StatelessWidget {
       return Center(child: Text('no_clinics_found'.tr()));
     }
 
-    return ListView.builder(
-      controller: controller,
-      itemCount: provider.currentClinics.length + (provider.hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == provider.currentClinics.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final clinic = provider.currentClinics[index];
-        return ClinicCard(
-          clinic: clinic,
-          distance: clinic['distance'] as double?,
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.fetchClinics();
       },
+      child: ListView.builder(
+        controller: controller,
+        itemCount: provider.currentClinics.length + (provider.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == provider.currentClinics.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final clinic = provider.currentClinics[index];
+          return ClinicCard(
+            clinic: clinic,
+            distance: clinic['distance'] as double?,
+          );
+        },
+      ),
     );
   }
 

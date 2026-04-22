@@ -126,7 +126,6 @@ class ClinicAppointmentProvider extends ChangeNotifier {
         .collection('appointments')
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
         .where('date', isLessThan: Timestamp.fromDate(dayEnd))
-        .where('date', isGreaterThan: Timestamp.fromDate(DateTime.now()))
         .orderBy('date')
         .snapshots(includeMetadataChanges: true);
   }
@@ -319,16 +318,29 @@ class _ClinicAppointmentsView extends StatefulWidget {
 
 class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
     with WidgetsBindingObserver {
+  bool _showCalendar = true;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels > 30 && _showCalendar) {
+      setState(() => _showCalendar = false);
+    } else if (_scrollController.position.pixels < -30 && !_showCalendar) {
+      setState(() => _showCalendar = true);
+    }
   }
 
   @override
@@ -432,16 +444,24 @@ class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
         child: Column(
           children: [
             const SizedBox(height: 5),
-            Padding(
-              padding: const EdgeInsets.all(6.0),
-              child: Card(
-                color: Theme.of(context).colorScheme.onPrimary,
-                child: const _NormalCalendar(),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: _showCalendar ? 320 : 0,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _showCalendar ? 1.0 : 0.0,
+                child: Padding(
+                  padding: const EdgeInsets.all(6.0),
+                  child: Card(
+                    child: const _NormalCalendar(),
+                  ),
+                ),
               ),
             ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-            // Appointments list below calendar
-            const Expanded(child: _AppointmentsPanel()),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+            Expanded(
+              child: _AppointmentsPanel(scrollController: _scrollController),
+            ),
           ],
         ),
       ),
@@ -509,15 +529,15 @@ class _CalendarContent extends StatelessWidget {
   }
 }
 
-/// Daily appointments list with swipe-to-cancel
 class _AppointmentsPanel extends StatelessWidget {
-  const _AppointmentsPanel();
+  final ScrollController scrollController;
+
+  const _AppointmentsPanel({required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ClinicAppointmentProvider>();
     final bool isWeb = kIsWeb && MediaQuery.of(context).size.width > 900;
-    final ScrollController scrollController = ScrollController();
 
     if (provider.isInitialLoading && provider.appointments.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -632,6 +652,7 @@ class _AppointmentsPanel extends StatelessWidget {
                     final appointmentId = doc.id;
 
                     final slot = Clinic.parseDateTime(appointment['date']);
+                    final isPast = slot.isBefore(DateTime.now());
                     final timeFormatted = DateFormat(
                       'HH:mm',
                       context.locale.toString(),
@@ -642,8 +663,7 @@ class _AppointmentsPanel extends StatelessWidget {
 
                     Widget cardContent = Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12),
-                      elevation: isWeb ? 2 : 1,
-                      color: Colors.white,
+                      elevation: isWeb ? 3 : 1,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: SizedBox(
                         height: 120,
@@ -659,7 +679,9 @@ class _AppointmentsPanel extends StatelessWidget {
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 18,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: isPast
+                                        ? Theme.of(context).colorScheme.onSurface.withAlpha(150)
+                                        : Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                 ),

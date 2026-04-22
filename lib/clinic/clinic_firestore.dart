@@ -3,11 +3,10 @@ import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:eyadati/utils/exceptions.dart';
 import 'package:eyadati/utils/network_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb_flutter;
-import 'package:eyadati/utils/connectivity_service.dart'; // Import ConnectivityService
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:eyadati/utils/connectivity_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
@@ -50,7 +49,7 @@ class ClinicFirestore {
     int staff,
   ) async {
     try {
-      final fcm = await FirebaseMessaging.instance.getToken();
+      final fcm = null;
 
       GeoFirePoint? geoFirePoint;
       if (latitude != null && longitude != null) {
@@ -157,7 +156,7 @@ class ClinicFirestore {
     double? longitude,
   }) async {
     try {
-      final fcm = await FirebaseMessaging.instance.getToken();
+      final fcm = null;
 
       GeoFirePoint? geoFirePoint;
       if (latitude != null && longitude != null) {

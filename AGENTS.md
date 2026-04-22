@@ -11,33 +11,39 @@ flutter build apk   # build Android APK
 
 ## Key Architecture
 
+- **Web-Only PWA** - Serving all platforms via browser (phone, tablet, desktop)
 - **Two user flows**: Clinic owners and regular users
 - **Backend**: Firebase (Auth/Firestore) + Supabase (Storage/Edge Functions)
 - **Payments**: Chargily Pay via Supabase edge function `create-chargily-checkout`
 - **State management**: Provider package
 - **i18n**: easy_localization (en, fr, ar) in `assets/translations/`
 
-## Critical Quirks
+## Responsive Breakpoints
 
-### Web vs Native Guards
-`kIsWeb` is used throughout to disable Firebase Messaging and Crashlytics on web:
+| Screen Width | Navigation | Layout |
+|------------|-----------|--------|
+| **< 600px** | Bottom nav bar | Stacked pages |
+| **600-900px** | Collapsible sidebar | 2-column |
+| **> 900px** | Persistent sidebar | Full dashboard |
+
+## Existing Responsive Patterns (KEEP THESE!)
+
 ```dart
-if (!kIsWeb) { FirebaseMessaging... }
+// Booking dialogs: Desktop = Dialog, Mobile = Bottom Sheet
+if (MediaQuery.of(context).size.width > 900) {
+  return showDialog(...);
+}
+return showMaterialModalBottomSheet(...);
+
+// Navigation switching handled in clinic_nav_bar.dart
 ```
+
+## Critical Quirks
 
 ### Supabase Edge Functions
 - `supabase/functions/chargily-webhook/index.ts` - payment webhook handler
 - `supabase/functions/fcm_notifications/index.ts` - FCM notifications
 - Webhook secret is hardcoded (test key in repo)
-
-### Firestore Settings (Mobile Only)
-```dart
-FirebaseFirestore.instance.settings = const Settings(
-  persistenceEnabled: true,
-  cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-);
-```
-This is guarded with `if (!kIsWeb)`.
 
 ### Provider Initialization
 ```dart
@@ -54,10 +60,10 @@ Clinic avatars uploaded to Supabase Storage, not Firebase Storage.
 | `lib/clinic/` | Clinic registration, login, appointments, settings |
 | `lib/user/` | User profile, appointments |
 | `lib/Appointments/` | Booking logic, clinic lists, slots UI |
-| `lib/NavBarUi/` | Floating bottom navigation bars |
+| `lib/NavBarUi/` | Navigation bars, appointment management |
 | `lib/chargili/` | Chargily payment integration |
 | `lib/Themes/` | Light/dark theme definitions |
-| `lib/FCM/` | Firebase Cloud Messaging |
+| `lib/utils/` | Utilities, helpers, models |
 | `supabase/functions/` | Supabase Edge Functions (backend) |
 
 ## Entry Point

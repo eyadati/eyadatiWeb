@@ -1,6 +1,4 @@
 import 'package:eyadati/splash_screen.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -18,40 +16,24 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:pwa_install/pwa_install.dart';
 import 'dart:ui';
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kIsWeb) return;
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint("Handling a background message: ${message.messageId}");
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Global error handling
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     if (kReleaseMode) {
-      // In release, we still want to see errors in console for web debugging
       debugPrint("FLUTTER ERROR: ${details.exception}");
       debugPrint("STACK TRACE: ${details.stack}");
-    }
-    if (!kIsWeb) {
-      FirebaseCrashlytics.instance.recordFlutterError(details);
     }
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint("ASYNC ERROR: $error");
-    if (!kIsWeb) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    }
     return true;
   };
 
-  if (kIsWeb) {
-    PWAInstall().setup(); // Initialize PWA logic (using instance)
-  }
+  PWAInstall().setup();
   await EasyLocalization.ensureInitialized();
   Provider.debugCheckInvalidValueType = null;
 
@@ -60,34 +42,11 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    if (!kIsWeb) {
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      
-      final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
-    }
-
     FlutterError.onError = (errorDetails) {
-      if (!kIsWeb) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-      } else {
-        debugPrint(errorDetails.toString());
-      }
+      debugPrint(errorDetails.toString());
     };
     PlatformDispatcher.instance.onError = (error, stack) {
-      if (!kIsWeb) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      } else {
-        debugPrint(error.toString());
-      }
+      debugPrint(error.toString());
       return true;
     };
 
@@ -96,13 +55,6 @@ void main() async {
       anonKey:
           "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVya2xkYXJxd2VlaHZ3Z3BuY3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTIyMDgsImV4cCI6MjA3NzQ4ODIwOH0.rQPh6hFnn6sz78rLa8_AWU3NV__-EgX8wDOTXbyeQ7o",
     );
-
-    if (!kIsWeb) {
-      FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: true,
-        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-      );
-    }
 
     runApp(
       MultiProvider(

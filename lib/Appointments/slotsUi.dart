@@ -6,11 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:eyadati/FCM/notifications_service.dart';
 import 'package:eyadati/utils/skeletons.dart';
+import 'package:eyadati/FCM/notifications_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
 
 // ================ PROVIDER ================
 class SlotInfo {
@@ -322,20 +323,43 @@ class SlotsUiProvider extends ChangeNotifier {
     return true;
   }
 
+  String _generateIcsContent(DateTime start, DateTime end, String title, String location) {
+    final buffer = StringBuffer();
+    buffer.writeln('BEGIN:VCALENDAR');
+    buffer.writeln('VERSION:2.0');
+    buffer.writeln('PRODID:-//Eyadati//Appointment//EN');
+    buffer.writeln('BEGIN:VEVENT');
+    buffer.writeln('UID:${DateTime.now().millisecondsSinceEpoch}@eyadati');
+    buffer.writeln('DTSTART:${_formatIcsDate(start)}');
+    buffer.writeln('DTEND:${_formatIcsDate(end)}');
+    buffer.writeln('SUMMARY:$title');
+    buffer.writeln('LOCATION:$location');
+    buffer.writeln('END:VEVENT');
+    buffer.writeln('END:VCALENDAR');
+    return buffer.toString();
+  }
+
+  String _formatIcsDate(DateTime dt) {
+    return '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}00';
+  }
+
   Future<void> _addAppointmentToCalendar() async {
-    if (kIsWeb || selectedSlot == null) return;
+    if (selectedSlot == null) return;
 
     try {
       final slotInfo = allSlots.firstWhere((s) => s.time == selectedSlot);
+      final endTime = selectedSlot!.add(Duration(minutes: slotInfo.duration));
+      final title = 'Appointment at ${clinicData['clinicName']}';
+      final location = clinicData['address'] ?? '';
 
-      final Event event = Event(
-        title: 'Appointment at ${clinicData['clinicName']}',
-        startDate: selectedSlot!,
-        endDate: selectedSlot!.add(Duration(minutes: slotInfo.duration)),
-        location: clinicData['address'],
-      );
+      final icsContent = _generateIcsContent(selectedSlot!, endTime, title, location);
+      final encoded = base64Encode(utf8.encode(icsContent));
+      final url = 'data:text/calendar;charset=utf-8;base64,$encoded';
 
-      await Add2Calendar.addEvent2Cal(event);
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     } catch (e) {
       debugPrint("Error adding to calendar: $e");
     }
@@ -353,7 +377,7 @@ class SlotsUiProvider extends ChangeNotifier {
     }
 
     try {
-      if (!kIsWeb && addToCalendar) {
+      if (addToCalendar) {
         try {
           await _addAppointmentToCalendar();
         } catch (e) {
