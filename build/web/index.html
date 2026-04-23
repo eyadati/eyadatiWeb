@@ -14,6 +14,7 @@
   <meta name="keywords" content="عيادة, طبيب, موعد, جزائر, حجز, طب, clinic, doctor, appointment, algeria">
   <meta name="author" content="Eyadati">
   <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.eyadati.com/">
   
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website">
@@ -42,6 +43,35 @@
   
   <title>عيادتي - Eyadati</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Structured Data - MedicalBusiness -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalBusiness",
+    "name": "Eyadati",
+    "alternateName": "عيادتي",
+    "description": "منصة حجز مواعيد طبية في الجزائر - Book medical appointments in Algeria",
+    "url": "https://www.eyadati.com",
+    "logo": "https://www.eyadati.com/icons/Icon-512.png",
+    "image": "https://www.eyadati.com/icons/Icon-512.png",
+    "areaServed": {
+      "@type": "State",
+      "name": "Algeria"
+    },
+    "inLanguage": ["ar", "fr"],
+    "availableService": [
+      {"@type": "MedicalProcedure", "name": "Appointment Booking", "alternateName": "حجز مواعيد"},
+      {"@type": "MedicalProcedure", "name": "Clinic Search", "alternateName": "البحث عن عيادات"}
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+213",
+      "contactType": "Customer Service",
+      "availableLanguage": ["Arabic", "French"]
+    }
+  }
+  </script>
 
   <!-- Splash Screen Styles -->
   <style>
@@ -104,12 +134,6 @@
       letter-spacing: -0.5px;
     }
     
-    .splash-subtitle {
-      margin-top: 8px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.8);
-    }
-    
     .splash-loader {
       margin-top: 48px;
       width: 40px;
@@ -150,7 +174,6 @@
       <img src="icons/Icon-192.png" alt="Logo">
     </div>
     <div class="splash-title">عيادتي</div>
-    <div class="splash-subtitle">Eyadati</div>
     <div class="splash-loader"></div>
   </div>
 
