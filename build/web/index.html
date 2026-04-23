@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="/www.eyadati.com/">
+  <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -156,21 +156,16 @@
 
   <script src="flutter_bootstrap.js" async></script>
   <script>
-    // Hide splash when Flutter is ready
-    window.addEventListener('flutter-first-frame', function() {
-      document.body.classList.add('flutter-loaded');
-      setTimeout(function() {
-        var splash = document.getElementById('splash');
-        if (splash) splash.remove();
-      }, 300);
-    });
-    
-    // PWA Install Prompt
+    // PWA Install - must be defined before Flutter loads
     var deferredPrompt;
     window.addEventListener('beforeinstallprompt', function(e) {
       deferredPrompt = e;
       if (window.hasPrompt) window.hasPrompt();
     });
+    
+    window.appInstalled = function() {
+      deferredPrompt = null;
+    };
     
     window.promptInstall = function() {
       if (deferredPrompt) {
@@ -183,6 +178,29 @@
         });
       }
     };
+    
+    // Track how PWA was launched (before Flutter loads)
+    function getLaunchMode() {
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      if (deferredPrompt) window.hasPrompt();
+      if (navigator.standalone || isStandalone) {
+        if (window.appLaunchedAsPWA) window.appLaunchedAsPWA();
+      } else {
+        if (window.appLaunchedInBrowser) window.appLaunchedInBrowser();
+      }
+    }
+  </script>
+  
+  <script>
+    // Hide splash when Flutter is ready
+    window.addEventListener('flutter-first-frame', function() {
+      document.body.classList.add('flutter-loaded');
+      getLaunchMode();
+      setTimeout(function() {
+        var splash = document.getElementById('splash');
+        if (splash) splash.remove();
+      }, 300);
+    });
   </script>
 </body>
 </html>
