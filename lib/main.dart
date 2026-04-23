@@ -33,7 +33,11 @@ void main() async {
     return true;
   };
 
-  PWAInstall().setup();
+  try {
+    PWAInstall().setup();
+  } catch (e) {
+    debugPrint('PWAInstall not available: $e');
+  }
   await EasyLocalization.ensureInitialized();
   Provider.debugCheckInvalidValueType = null;
 

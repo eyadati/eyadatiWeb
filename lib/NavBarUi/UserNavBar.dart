@@ -1,4 +1,5 @@
 import 'package:eyadati/user/userAppointments.dart';
+import 'package:eyadati/user/userSettingsPage.dart';
 import 'package:eyadati/utils/connectivity_service.dart';
 import 'package:eyadati/user/userQrScannerPage.dart';
 import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart'; // flutter pub add flutter_floating_bottom_bar
@@ -49,6 +50,7 @@ class _BottomNavContent extends StatelessWidget {
                 children: [
                   DeferredTab(id: "1", child: const UserAppointments()),
                   DeferredTab(id: "2", child: const FavoritScreen()),
+                  DeferredTab(id: "3", child: const UserSettings()),
                 ],
               ),
             ),
@@ -64,6 +66,7 @@ class _BottomNavContent extends StatelessWidget {
           children: [
             _buildNavItem(context, LucideIcons.home, "home".tr(), "1"),
             _buildNavItem(context, LucideIcons.heart, "favorites".tr(), "2"),
+            _buildNavItem(context, LucideIcons.userCog, "settings".tr(), "3"),
           ],
         ),
       ),

@@ -102,8 +102,7 @@ class _WebClinicSearchSideState extends State<_WebClinicSearchSide> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: Card(
-            elevation: 0,
-            color: Theme.of(context).colorScheme.surface,
+            elevation: 10,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),

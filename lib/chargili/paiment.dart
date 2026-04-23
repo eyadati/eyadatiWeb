@@ -296,26 +296,31 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
         final clinic = Clinic.fromMap(data);
         final now = DateTime.now();
         final startDate = clinic.subscriptionStartDate;
+        final dbEndDate = clinic.subscriptionEndDate;
 
-        // Trial check
-        final trialEndDate = startDate.add(
-          const Duration(days: PaymentService.trialDays),
-        );
-        final isTrial = now.isBefore(trialEndDate);
-
-        // Cycle check
-        DateTime cycleStart = startDate;
-        while (cycleStart.add(const Duration(days: 30)).isBefore(now)) {
-          cycleStart = cycleStart.add(const Duration(days: 30));
+        // Use database endDate if valid (subscription already active), otherwise calculate cycle
+        DateTime effectiveEndDate;
+        if (dbEndDate.isAfter(now)) {
+          // Use real subscription end date from database (active subscription)
+          effectiveEndDate = dbEndDate;
+        } else {
+          // Calculate cycle from start date (for new/renewal)
+          DateTime cycleStart = startDate;
+          while (cycleStart.add(const Duration(days: 30)).isBefore(now)) {
+            cycleStart = cycleStart.add(const Duration(days: 30));
+          }
+          effectiveEndDate = cycleStart.add(const Duration(days: 30));
         }
-        final cycleEnd = cycleStart.add(const Duration(days: 30));
-        final daysLeft = cycleEnd.difference(now).inDays;
+        
+        final daysLeft = effectiveEndDate.difference(now).inDays;
 
-        final appointments = clinic.appointmentsThisMonth;
+final appointments = clinic.appointmentsThisMonth;
         final apptFees = appointments * PaymentService.feePerAppointment;
         final totalAmount = PaymentService.fixedMonthlyFee + apptFees;
 
-        const canPay = true;
+        final isExpired = now.isAfter(effectiveEndDate);
+        final canRenew = isExpired || daysLeft <= 7;
+        final canPay = canRenew;
 
         return Container(
           padding: const EdgeInsets.all(24),
@@ -336,32 +341,45 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
+                  'subscription_renewal'.tr(),
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 16),
+                _receiptRow(
+                  'clinic_id'.tr(),
+                  clinic.clinicName,
+                  isBold: true,
+                ),
+                const SizedBox(height: 24),
+                if (!canRenew)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.clock,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'subscription_active_days_left'.tr(args: [daysLeft.toString()]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Text(
                   'receipt'.tr(),
                   style: Theme.of(
                     context,
                   ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
-                if (isTrial)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'trial_ends_in'.tr(
-                        args: [trialEndDate.difference(now).inDays.toString()],
-                      ),
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 32),
                 _buildReceipt(
                   context,
@@ -369,7 +387,7 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
                   apptFees,
                   totalAmount,
                   daysLeft,
-                  cycleEnd,
+                  effectiveEndDate,
                 ),
                 const SizedBox(height: 32),
                 if (_errorMessage != null)
@@ -407,7 +425,7 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
                             canPay
                                 ? 'pay_now'.tr()
                                 : 'payment_available_on'.tr(
-                                    args: [DateFormat.yMMMd().format(cycleEnd)],
+                                    args: [DateFormat.yMMMd().format(effectiveEndDate)],
                                   ),
                           ),
                   ),

@@ -240,8 +240,7 @@ class _AppointmentCard extends StatelessWidget {
 
     final content = Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: isLargeScreen ? 2 : 1,
-      color: Colors.white,
+      elevation: 10,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -516,8 +516,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      color: Colors.white,
+      elevation: 10,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: isFull
@@ -532,13 +531,15 @@ class _ManagementScreenState extends State<ManagementScreen> {
         collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
         leading: Container(
           decoration: BoxDecoration(
-            color: isFull ? Colors.grey.withAlpha(20) : Theme.of(context).colorScheme.primary.withAlpha(20),
+            color: Theme.of(context).colorScheme.primary.withAlpha(20),
             borderRadius: BorderRadius.circular(8),
           ),
           child: IconButton(
             icon: Icon(
               LucideIcons.plusCircle,
-              color: isFull ? Colors.grey : Theme.of(context).colorScheme.primary,
+              color: isFull 
+                ? Theme.of(context).colorScheme.onSurface.withAlpha(150) 
+                : Theme.of(context).colorScheme.primary,
             ),
             onPressed: isFull
                 ? null

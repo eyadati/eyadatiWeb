@@ -128,11 +128,51 @@ class _BottomNavContent extends StatelessWidget {
     final selectedIndex = int.parse(provider.selected) - 1;
 
     if (provider.isLoadingClinic) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('loading'.tr()),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Wait for auth and clinic data before showing "not found"
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('please_wait'.tr()),
+            ],
+          ),
+        ),
+      );
     }
 
     if (provider.clinic == null) {
-      return Scaffold(body: Center(child: Text('clinic_data_not_found'.tr())));
+      // Try to reload clinic data
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('loading_clinic_data'.tr()),
+            ],
+          ),
+        ),
+      );
     }
 
     final clinic = provider.clinic!;
@@ -250,7 +290,7 @@ class NotificationCenter extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(40),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -298,14 +338,12 @@ class NotificationCenter extends StatelessWidget {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: isRead
-                                ? Colors.grey.shade200
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
+                                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                                : Theme.of(context).colorScheme.primaryContainer,
                             child: Icon(
                               LucideIcons.calendar,
                               color: isRead
-                                  ? Colors.grey
+                                  ? Theme.of(context).colorScheme.onSurface.withAlpha(150)
                                   : Theme.of(context).colorScheme.primary,
                             ),
                           ),
