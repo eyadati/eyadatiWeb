@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 
 class UserFirestore {
   final user = FirebaseAuth.instance.currentUser;
-  final collection = FirebaseFirestore.instance.collection("users");
+  final collection = FirebaseFirestore.instance.collection('users');
   final ConnectivityService? _connectivityService; // Add ConnectivityService
 
   UserFirestore({ConnectivityService? connectivityService})
@@ -25,11 +25,12 @@ class UserFirestore {
   Future<void> addUser(String name, String phone, String city) async {
     final fcm = null;
     collection.doc(user?.uid).set({
-      "name": name,
-      "phone": phone,
-      "uid": user?.uid,
-      "city": city,
-      "fcm": fcm,
+      'name': name,
+      'phone': phone,
+      'uid': user?.uid,
+      'city': city,
+      'fcm': fcm,
+      'test': false,
     }, SetOptions(merge: true));
   }
 
@@ -66,11 +67,12 @@ class UserFirestore {
   Future<void> updateUser(String name, String phone, String city) async {
     final fcm = null;
     collection.doc(user?.uid).set({
-      "name": name,
-      "phone": phone,
-      "uid": user?.uid,
-      "city": city,
-      "fcm": fcm,
+      'name': name,
+      'phone': phone,
+      'uid': user?.uid,
+      'city': city,
+      'fcm': fcm,
+      'test': false,
     }, SetOptions(merge: true));
   }
 
@@ -96,23 +98,25 @@ class UserFirestore {
       final appointmentData = appointmentDoc.data()!;
       final clinicUid = appointmentData['clinicUid'] as String;
 
-      // Delete from both collections
+      // Update status instead of deleting
       final batch = FirebaseFirestore.instance.batch();
 
-      batch.delete(
+      batch.update(
         FirebaseFirestore.instance
             .collection('clinics')
             .doc(clinicUid)
             .collection('appointments')
             .doc(appointmentId),
+        {'status': 'cancelled'},
       );
 
-      batch.delete(
+      batch.update(
         FirebaseFirestore.instance
             .collection('users')
             .doc(userUid)
             .collection('appointments')
             .doc(appointmentId),
+        {'status': 'cancelled'},
       );
 
       await batch.commit();

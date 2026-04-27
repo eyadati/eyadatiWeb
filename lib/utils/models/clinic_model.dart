@@ -16,6 +16,7 @@ class Clinic {
   final bool paidThisMonth;
   final int noShowTotal;
   final bool paused;
+  final bool test;
   final String phone;
   final String address;
   final String city;
@@ -45,6 +46,7 @@ class Clinic {
     required this.paidThisMonth,
     required this.noShowTotal,
     required this.paused,
+    required this.test,
     required this.phone,
     required this.address,
     required this.city,
@@ -90,6 +92,7 @@ class Clinic {
       paidThisMonth: data['paid_this_month'] ?? true,
       noShowTotal: parseInt(data['no_show_total'], 0),
       paused: data['paused'] ?? false,
+      test: data['test'] ?? false,
       phone: data['phone'] ?? '',
       address: data['address'] ?? '',
       city: data['city'] ?? '',
@@ -114,33 +117,34 @@ class Clinic {
 
   Map<String, dynamic> toMap() {
     return {
-      "uid": uid,
-      "email": email,
-      "name": name,
-      "clinicName": clinicName,
-      "fcm": fcm,
-      "mapsLink": mapsLink,
-      "workingDays": workingDays,
-      "subscriptionStartDate": subscriptionStartDate,
-      "subscriptionEndDate": subscriptionEndDate,
-      "subscriptionType": subscriptionType,
-      "appointments_this_month": appointmentsThisMonth,
-      "multiplier_value": multiplierValue,
-      "paid_this_month": paidThisMonth,
-      "no_show_total": noShowTotal,
-      "paused": paused,
-      "phone": phone,
-      "address": address,
-      "city": city,
+      'uid': uid,
+      'email': email,
+      'name': name,
+      'clinicName': clinicName,
+      'fcm': fcm,
+      'mapsLink': mapsLink,
+      'workingDays': workingDays,
+      'subscriptionStartDate': subscriptionStartDate,
+      'subscriptionEndDate': subscriptionEndDate,
+      'subscriptionType': subscriptionType,
+      'appointments_this_month': appointmentsThisMonth,
+      'multiplier_value': multiplierValue,
+      'paid_this_month': paidThisMonth,
+      'no_show_total': noShowTotal,
+      'paused': paused,
+      'test': test,
+      'phone': phone,
+      'address': address,
+      'city': city,
       'picUrl': picUrl,
-      "openingAt": openingAt,
+      'openingAt': openingAt,
       'closingAt': closingAt,
       'breakStart': breakStart,
-      "breakEnd": breakEnd,
-      "specialty": specialty,
+      'breakEnd': breakEnd,
+      'specialty': specialty,
       'duration': duration,
       'staff': staff,
-      "position": position,
+      'position': position,
     };
   }
 }

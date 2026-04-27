@@ -25,7 +25,7 @@ class ClinicFirestore {
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
        collection = (firestore ?? FirebaseFirestore.instance).collection(
-         "clinics",
+         'clinics',
        ),
        clinic = (firebaseAuth ?? FirebaseAuth.instance).currentUser,
        _connectivityService = connectivityService; // Initialize it
@@ -56,39 +56,40 @@ class ClinicFirestore {
         geoFirePoint = GeoFirePoint(GeoPoint(latitude, longitude));
       }
 
-      final newClinic = Clinic(
-        uid: clinic!.uid,
-        email: clinic!.email ?? '',
-        name: name,
-        clinicName: clinicName,
-        fcm: fcm,
-        mapsLink: mapsLink,
-        workingDays: workingDays.cast<int>(),
-        subscriptionStartDate: DateTime.now(),
-        subscriptionEndDate: DateTime.now().add(const Duration(days: 31)),
-        subscriptionType: "pay_per_appointment",
-        appointmentsThisMonth: 0,
-        multiplierValue: 100.0,
-        paidThisMonth: true,
-        noShowTotal: 0,
-        paused: false,
-        phone: phone,
-        address: adress,
-        city: city,
-        picUrl: picUrl,
-        openingAt: openingAt,
-        closingAt: closingAt,
-        breakStart: breakStart,
-        breakEnd: breakEnd,
-        specialty: specialty,
-        duration: sessionDuration,
-        staff: staff,
-        position: geoFirePoint?.data,
-      );
+    final newClinic = Clinic(
+      uid: clinic!.uid,
+      email: clinic!.email ?? '',
+      name: name,
+      clinicName: clinicName,
+      fcm: fcm,
+      mapsLink: mapsLink,
+      workingDays: workingDays.cast<int>(),
+      subscriptionStartDate: DateTime.now(),
+      subscriptionEndDate: DateTime.now().add(const Duration(days: 31)),
+      subscriptionType: 'pay_per_appointment',
+      appointmentsThisMonth: 0,
+      multiplierValue: 100.0,
+      paidThisMonth: true,
+      noShowTotal: 0,
+      paused: false,
+      test: false,
+      phone: phone,
+      address: adress,
+      city: city,
+      picUrl: picUrl,
+      openingAt: openingAt,
+      closingAt: closingAt,
+      breakStart: breakStart,
+      breakEnd: breakEnd,
+      specialty: specialty,
+      duration: sessionDuration,
+      staff: staff,
+      position: geoFirePoint?.data,
+    );
 
       await collection.doc(clinic?.uid).set(newClinic.toMap());
     } catch (e) {
-      debugPrint("Clinic creation error : $e");
+      debugPrint('Clinic creation error : $e');
       throw DatabaseException('failed_to_save_clinic_data');
     }
   }
@@ -131,7 +132,7 @@ class ClinicFirestore {
         debugPrint("✅ Fixed clinic profile integrity for $clinicUid: ${updates.keys.join(', ')}");
       }
     } catch (e) {
-      debugPrint("Error ensuring clinic profile integrity: $e");
+      debugPrint('Error ensuring clinic profile integrity: $e');
     }
   }
 
@@ -164,34 +165,34 @@ class ClinicFirestore {
       }
 
       final updateData = {
-        "uid": clinic!.uid,
-        "email": clinic!.email,
-        "name": name,
-        "clinicName": clinicName,
-        "fcm": fcm,
-        "mapsLink": mapsLink,
-        "workingDays": workingDays,
-        "phone": phone,
-        "address": address,
-        "city": city,
+        'uid': clinic!.uid,
+        'email': clinic!.email,
+        'name': name,
+        'clinicName': clinicName,
+        'fcm': fcm,
+        'mapsLink': mapsLink,
+        'workingDays': workingDays,
+        'phone': phone,
+        'address': address,
+        'city': city,
         'picUrl': picUrl,
-        "openingAt": openingAt,
+        'openingAt': openingAt,
         'closingAt': closingAt,
         'breakStart': breakStart,
-        "breakEnd": breakEnd,
-        "specialty": specialty,
+        'breakEnd': breakEnd,
+        'specialty': specialty,
         'duration': sessionDuration,
         'staff': staff,
-        "paused": paused,
+        'paused': paused,
       };
 
       if (geoFirePoint != null) {
-        updateData["position"] = geoFirePoint.data;
+        updateData['position'] = geoFirePoint.data;
       }
 
       await collection.doc(clinic?.uid).update(updateData);
     } catch (e) {
-      debugPrint("Clinic update error : $e");
+      debugPrint('Clinic update error : $e');
       throw DatabaseException('failed_to_update_clinic_data');
     }
   }
@@ -238,7 +239,7 @@ class ClinicFirestore {
         }
       } else if (!doc.exists && (_connectivityService?.isOnline == false)) {
         // If offline and not in cache, we still don't have data, return null
-        debugPrint("Clinic data not in cache and device is offline.");
+        debugPrint('Clinic data not in cache and device is offline.');
         return null;
       }
 
@@ -249,16 +250,16 @@ class ClinicFirestore {
 
       return doc.data() as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint("Error getting clinic data: $e");
+      debugPrint('Error getting clinic data: $e');
       return null;
     }
   }
 
   Future<void> updateClinicPauseStatus(String clinicUid, bool isPaused) async {
     try {
-      await collection.doc(clinicUid).update({"paused": isPaused});
+      await collection.doc(clinicUid).update({'paused': isPaused});
     } catch (e) {
-      debugPrint("Error updating clinic pause status: $e");
+      debugPrint('Error updating clinic pause status: $e');
       throw DatabaseException('failed_to_update_pause_status');
     }
   }
@@ -270,11 +271,11 @@ class ClinicFirestore {
         .map((snapshot) {
           // Implement checks for metadata changes
           if (snapshot.metadata.isFromCache) {
-            debugPrint("getAvailableClinics: Data from cache.");
+            debugPrint('getAvailableClinics: Data from cache.');
           }
           if (snapshot.metadata.hasPendingWrites) {
             debugPrint(
-              "getAvailableClinics: Data has pending writes (local changes).",
+              'getAvailableClinics: Data has pending writes (local changes).',
             );
           }
           return snapshot.docs.map((doc) => doc.data()).toList();
@@ -321,7 +322,7 @@ class ClinicFirestore {
         }
         await batch.commit();
       } catch (e) {
-        debugPrint("Error performing client-side cleanup: $e");
+        debugPrint('Error performing client-side cleanup: $e');
       }
 
       // 1. Delete clinic document from Firestore
@@ -367,20 +368,23 @@ class ClinicFirestore {
       // Delete from both collections
       final batch = _firestore.batch();
 
-      batch.delete(
+      // Update status instead of deleting
+      batch.update(
         _firestore
             .collection('clinics')
             .doc(clinicId)
             .collection('appointments')
             .doc(appointmentId),
+        {'status': 'cancelled'},
       );
 
-      batch.delete(
+      batch.update(
         _firestore
             .collection('users')
             .doc(userUid)
             .collection('appointments')
             .doc(appointmentId),
+        {'status': 'cancelled'},
       );
 
       await batch.commit();
@@ -437,7 +441,7 @@ class ClinicFirestore {
         }
       });
     } catch (e) {
-      debugPrint("Error incrementing appointment count: $e");
+      debugPrint('Error incrementing appointment count: $e');
     }
   }
 
@@ -492,7 +496,7 @@ class ClinicFirestore {
         });
       });
     } catch (e) {
-      debugPrint("Error adding manual appointment: $e");
+      debugPrint('Error adding manual appointment: $e');
       if (e is AppException) rethrow;
       throw DatabaseException('failed_to_add_manual_appointment');
     }

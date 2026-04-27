@@ -9,12 +9,12 @@ class ClinicRequestRegistrationScreen extends StatelessWidget {
   const ClinicRequestRegistrationScreen({super.key});
 
   final String whatsappNumber =
-      "213562025180"; // Replace with your actual number (format: CCXXXXXXXXX)
+      '213562025180'; // Replace with your actual number (format: CCXXXXXXXXX)
 
   Future<void> _launchWhatsApp() async {
-    final message = "whatsapp_message".tr();
+    final message = 'whatsapp_message'.tr();
     // Using wa.me as recommended by WhatsApp
-    final url = "https://wa.me/$whatsappNumber?text=${Uri.encodeComponent(message)}";
+    final url = 'https://wa.me/$whatsappNumber?text=${Uri.encodeComponent(message)}';
     final uri = Uri.parse(url);
 
     try {
@@ -27,14 +27,18 @@ class ClinicRequestRegistrationScreen extends StatelessWidget {
         await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
-      debugPrint("Could not launch WhatsApp: $e");
+      debugPrint('Could not launch WhatsApp: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('join_eyadati'.tr())),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text('join_eyadati'.tr()),
+      ),
       body: FormResponsiveWrapper(
         child: Center(
           child: SingleChildScrollView(
@@ -53,14 +57,9 @@ class ClinicRequestRegistrationScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              Text(
-                'registration_instruction_text'.tr() ==
-                        'registration_instruction_text'
-                    ? "To maintain the highest quality and trust, Eyadati registrations are now handled directly. Contact us on WhatsApp to schedule a verification visit and set up your account."
-                    : 'registration_instruction_text'.tr(),
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
+               Text(
+                 'registration_instruction_text'.tr(),
+               ),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: _launchWhatsApp,

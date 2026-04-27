@@ -16,7 +16,11 @@ class MarkdownViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title.tr())),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(title.tr()),
+      ),
       body: FutureBuilder(
         future: rootBundle.loadString(markdownAssetPath),
         builder: (BuildContext context, AsyncSnapshot<String> snapshot) {

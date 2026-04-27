@@ -6,6 +6,7 @@ class UserProfile {
   final String phone;
   final String city;
   final String? fcm;
+  final bool test;
 
   UserProfile({
     required this.uid,
@@ -13,6 +14,7 @@ class UserProfile {
     required this.phone,
     required this.city,
     this.fcm,
+    required this.test,
   });
 
   factory UserProfile.fromMap(Map<String, dynamic> data) {
@@ -22,16 +24,18 @@ class UserProfile {
       phone: data['phone'] ?? '',
       city: data['city'] ?? '',
       fcm: data['fcm'],
+      test: data['test'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      "uid": uid,
-      "name": name,
-      "phone": phone,
-      "city": city,
-      "fcm": fcm,
+      'uid': uid,
+      'name': name,
+      'phone': phone,
+      'city': city,
+      'fcm': fcm,
+      'test': test,
     };
   }
 

@@ -1,31 +1,36 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:eyadati/user/user_firestore.dart';
+import 'package:eyadati/user/patient_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserNavBarProvider extends ChangeNotifier {
-  String _selected = "1";
+  String _selected = '1';
   String get selected => _selected;
-  FirebaseAuth auth = FirebaseAuth.instance;
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   StreamSubscription? _favoritesSubscription;
   Set<String> _favoriteIds = {};
   List<Map<String, dynamic>> _favorites = [];
   bool _isLoadingFavorites = true;
+  String _currentPhone = '';
 
   Set<String> get favoriteIds => _favoriteIds;
   List<Map<String, dynamic>> get favorites => _favorites;
   bool get isLoadingFavorites => _isLoadingFavorites;
 
   UserNavBarProvider() {
+    _initPhone();
+  }
+
+  Future<void> _initPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentPhone = prefs.getString('patient_phone') ?? '';
     _initFavorites();
   }
 
   void _initFavorites() {
-    final user = auth.currentUser;
-    if (user == null) {
+    if (_currentPhone.isEmpty) {
       _favorites = [];
       _favoriteIds = {};
       _isLoadingFavorites = false;
@@ -35,8 +40,8 @@ class UserNavBarProvider extends ChangeNotifier {
 
     _favoritesSubscription?.cancel();
     _favoritesSubscription = firestore
-        .collection('users')
-        .doc(user.uid)
+        .collection('patients')
+        .doc(_currentPhone)
         .collection('favorites')
         .snapshots()
         .listen((snapshot) {
@@ -44,6 +49,7 @@ class UserNavBarProvider extends ChangeNotifier {
             final data = doc.data();
             return {
               'uid': doc.id,
+              'id': doc.id,
               'clinicName': data['clinicName'],
               'address': data['address'],
               'specialty': data['specialty'],
@@ -55,7 +61,6 @@ class UserNavBarProvider extends ChangeNotifier {
             };
           }).toList();
 
-          // Sort by favorited timestamp
           clinics.sort((a, b) {
             final Timestamp? timestampA = a['favoritedTimestamp'];
             final Timestamp? timestampB = b['favoritedTimestamp'];
@@ -64,7 +69,7 @@ class UserNavBarProvider extends ChangeNotifier {
             if (timestampA == null) return 1;
             if (timestampB == null) return -1;
 
-            return timestampB.compareTo(timestampA); // Newest first
+            return timestampB.compareTo(timestampA);
           });
 
           _favorites = clinics;
@@ -72,7 +77,7 @@ class UserNavBarProvider extends ChangeNotifier {
           _isLoadingFavorites = false;
           notifyListeners();
         }, onError: (e) {
-          debugPrint("Error in favorites subscription: $e");
+          debugPrint('Error in favorites subscription: $e');
           _isLoadingFavorites = false;
           notifyListeners();
         });
@@ -83,8 +88,28 @@ class UserNavBarProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(String clinicUid) async {
-    final userFirestore = UserFirestore();
-    await userFirestore.toggleFavorite(clinicUid);
+    if (_currentPhone.isEmpty) {
+      // Try to get phone from prefs
+      final prefs = await SharedPreferences.getInstance();
+      _currentPhone = prefs.getString('patient_phone') ?? '';
+    }
+    
+    if (_currentPhone.isEmpty) {
+      debugPrint('Cannot toggle favorite: no phone found');
+      return;
+    }
+
+    final patientFirestore = PatientFirestore(phone: _currentPhone);
+    await patientFirestore.toggleFavorite(clinicUid);
+  }
+
+  void refreshPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final newPhone = prefs.getString('patient_phone') ?? '';
+    if (newPhone != _currentPhone) {
+      _currentPhone = newPhone;
+      _initFavorites();
+    }
   }
 
   void select(String value) {

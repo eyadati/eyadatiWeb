@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -70,6 +69,8 @@ class _UserQrScannerPageState extends State<UserQrScannerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text('qr_scanner'.tr()),
         actions: [
           IconButton(

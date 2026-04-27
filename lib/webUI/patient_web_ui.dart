@@ -8,7 +8,6 @@ import 'package:eyadati/utils/widgets.dart';
 import 'package:eyadati/utils/skeletons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:eyadati/utils/connectivity_service.dart';
 import 'package:eyadati/user/userSettingsPage.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
@@ -31,30 +30,23 @@ class PatientWebUI extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (context) => UserAppointmentsProvider(
-            connectivityService: Provider.of<ConnectivityService>(
-              context,
-              listen: false,
-            ),
+          create: (context) => PatientAppointmentsProvider(
+            firestore: FirebaseFirestore.instance,
           ),
         ),
       ],
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
-          title: Image.asset('assets/logo.png', height: 120),
-          centerTitle: true,
           backgroundColor: bgColor,
           elevation: 0,
           scrolledUnderElevation: 0,
-          leading: Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(LucideIcons.settings),
-              onPressed: () => showMaterialModalBottomSheet(
-                enableDrag: false,
-                context: context,
-                builder: (context) => const UserSettings(),
-              ),
+          leading: IconButton(
+            icon: const Icon(LucideIcons.settings),
+            onPressed: () => showMaterialModalBottomSheet(
+              enableDrag: false,
+              context: context,
+              builder: (context) => const UserSettings(),
             ),
           ),
         ),
@@ -248,9 +240,7 @@ class _PatientAppointmentsSideState extends State<_PatientAppointmentsSide> {
         Padding(
           padding: const EdgeInsets.all(20.0),
           child: Text(
-            'my_appointments'.tr() == 'my_appointments'
-                ? 'My Appointments'
-                : 'my_appointments'.tr(),
+            'my_appointments'.tr(),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),

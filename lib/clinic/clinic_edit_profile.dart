@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.io) 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -78,14 +77,14 @@ class ClinicEditProfileProvider extends ChangeNotifier {
     try {
       final user = auth.currentUser;
       if (user == null) {
-        error = "no_user_found".tr();
+        error = 'no_user_found'.tr();
         isLoading = false;
         notifyListeners();
         return;
       }
 
       final doc = await firestore
-          .collection("clinics")
+          .collection('clinics')
           .doc(user.uid)
           .get(GetOptions(source: Source.cache));
       if (doc.exists) {
@@ -165,7 +164,7 @@ class ClinicEditProfileProvider extends ChangeNotifier {
   Future<void> saveProfile(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
     if (selectedCity == null) {
-      error = "city_required".tr();
+      error = 'city_required'.tr();
       notifyListeners();
       return;
     }
@@ -182,7 +181,7 @@ class ClinicEditProfileProvider extends ChangeNotifier {
 
     try {
       final user = auth.currentUser;
-      if (user == null) throw Exception("no user found".tr());
+      if (user == null) throw Exception('no user found'.tr());
 
       String? newPicUrl;
       if (pickedImage != null) {
@@ -313,6 +312,8 @@ class _ClinicEditProfileContent extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text('edit_clinic_profile'.tr()),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
@@ -335,7 +336,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.clinicNameController,
-                        "clinic_name".tr(),
+                        'clinic_name'.tr(),
                         provider,
                       ),
                       const SizedBox(height: 16),
@@ -343,14 +344,14 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.durationController,
-                        "appointment_duration_minutes".tr(),
+                        'appointment_duration_minutes'.tr(),
                         provider,
                         inputType: TextInputType.number,
                       ),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.doctorsController,
-                        "number_of_doctors".tr(),
+                        'number_of_doctors'.tr(),
                         provider,
                         inputType: TextInputType.number,
                       ),
@@ -360,13 +361,13 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.nameController,
-                        "owner_name".tr(),
+                        'owner_name'.tr(),
                         provider,
                       ),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.emailController,
-                        "email".tr(),
+                        'email'.tr(),
                         provider,
                         readOnly: true,
                       ),
@@ -378,20 +379,20 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.addressController,
-                        "address".tr(),
+                        'address'.tr(),
                         provider,
                       ),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.mapsLinkController,
-                        "maps_link".tr(),
+                        'maps_link'.tr(),
                         provider,
                         isOptional: true,
                       ),
                       const SizedBox(height: 16),
                       _buildTextFormField(
                         provider.phoneController,
-                        "phone_number".tr(),
+                        'phone_number'.tr(),
                         provider,
                         inputType: TextInputType.phone,
                       ),
@@ -401,28 +402,28 @@ class _ClinicEditProfileContent extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildTimePickerRow(
                         context,
-                        "opening".tr(),
+                        'opening'.tr(),
                         'opening',
                         provider,
                       ),
                       const SizedBox(height: 12),
                       _buildTimePickerRow(
                         context,
-                        "closing".tr(),
+                        'closing'.tr(),
                         'closing',
                         provider,
                       ),
                       const SizedBox(height: 12),
                       _buildTimePickerRow(
                         context,
-                        "break_start".tr(),
+                        'break_start'.tr(),
                         'breakStart',
                         provider,
                       ),
                       const SizedBox(height: 12),
                       _buildTimePickerRow(
                         context,
-                        "break_end".tr(),
+                        'break_end'.tr(),
                         'breakEnd',
                         provider,
                       ),
@@ -462,7 +463,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
                                   height: 20,
                                 )
                               : Text(
-                                  "save_changes".tr(),
+                                  'save_changes'.tr(),
                                   style: const TextStyle(fontSize: 16),
                                 ),
                         ),
@@ -586,12 +587,12 @@ class _ClinicEditProfileContent extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: provider.selectedCity,
       decoration: InputDecoration(
-        labelText: "city".tr(),
+        labelText: 'city'.tr(),
         prefixIcon: const Icon(LucideIcons.mapPin),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
       ),
-      hint: Text("select city".tr()),
+      hint: Text('select city'.tr()),
       items: provider.algerianCities.map((city) {
         return DropdownMenuItem(value: city, child: Text(city));
       }).toList(),
@@ -615,12 +616,12 @@ class _ClinicEditProfileContent extends StatelessWidget {
           ? provider.specialtyController.text
           : null,
       decoration: InputDecoration(
-        labelText: "specialty".tr(),
+        labelText: 'specialty'.tr(),
         prefixIcon: const Icon(LucideIcons.stethoscope),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
       ),
-      hint: Text("select specialty".tr()),
+      hint: Text('select specialty'.tr()),
       items: provider.specialties.map((specialty) {
         return DropdownMenuItem(value: specialty, child: Text(specialty.tr()));
       }).toList(),
@@ -672,7 +673,7 @@ class _ClinicEditProfileContent extends StatelessWidget {
         ),
         TextButton.icon(
           icon: const Icon(LucideIcons.clock),
-          label: Text(timeText ?? "select time".tr()),
+          label: Text(timeText ?? 'select time'.tr()),
           onPressed: () async {
             TimeOfDay? picked = await showTimePicker(
               context: context,
@@ -692,13 +693,13 @@ class _ClinicEditProfileContent extends StatelessWidget {
     ClinicEditProfileProvider provider,
   ) {
     final dayNames = [
-      "monday".tr(),
-      "tuesday".tr(),
-      "wednesday".tr(),
-      "thursday".tr(),
-      "friday".tr(),
-      "saturday".tr(),
-      "sunday".tr(),
+      'monday'.tr(),
+      'tuesday'.tr(),
+      'wednesday'.tr(),
+      'thursday'.tr(),
+      'friday'.tr(),
+      'saturday'.tr(),
+      'sunday'.tr(),
     ];
     return Wrap(
       spacing: 8,

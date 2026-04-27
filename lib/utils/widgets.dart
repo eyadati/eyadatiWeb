@@ -144,8 +144,8 @@ class ClinicCard extends StatelessWidget {
                                 padding: const EdgeInsets.only(top: 2.0),
                                 child: Text(
                                   '${(distance! / 1000).toStringAsFixed(1)} km',
-                                  style: const TextStyle(
-                                    color: Colors.green,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),

@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 import 'package:eyadati/clinic/clinic_firestore.dart';
 import 'package:eyadati/utils/markdown_viewer_screen.dart'; 
 import 'package:eyadati/utils/connectivity_service.dart'; 
+import 'package:eyadati/utils/firestore_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eyadati/intro.dart';
 import 'package:eyadati/Themes/ThemeProvider.dart' as theme_provider;
 
@@ -79,8 +81,9 @@ class _ClinicsettingsState extends State<Clinicsettings> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
+          elevation: 0,
+          scrolledUnderElevation: 0,
           centerTitle: true,
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         ),
         body: Scrollbar(
           controller: _scrollController,
@@ -132,7 +135,7 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                       ),
                       sections: [
                         SettingsSection(
-                          title: Text("appearance".tr()),
+                          title: Text('appearance'.tr()),
                           tiles: [
                             SettingsTile.switchTile(
                               onToggle: (value) {
@@ -140,14 +143,14 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                               },
                               initialValue: Provider.of<theme_provider.ThemeProvider>(context).isDarkMode,
                               leading: const Icon(LucideIcons.moon),
-                              title: Text("dark_mode".tr()),
+                              title: Text('dark_mode'.tr()),
                             ),
                           ],
                         ),
                         SettingsSection(
                           tiles: [
                             SettingsTile.navigation(
-                              title: Text("edit_profile".tr()),
+                              title: Text('edit_profile'.tr()),
                               leading: const Icon(LucideIcons.user),
                               onPressed: (_) => showMaterialModalBottomSheet(
                                 expand: true,
@@ -156,12 +159,12 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                               ),
                             ),
                             SettingsTile.navigation(
-                              title: Text("language".tr()),
+                              title: Text('language'.tr()),
                               leading: const Icon(LucideIcons.globe),
                               onPressed: (_) => _showLanguageDialog(context),
                             ),
                             SettingsTile.navigation(
-                              title: Text("payment".tr()),
+                              title: Text('payment'.tr()),
                               leading: const Icon(LucideIcons.creditCard),
                               onPressed: (_) => showMaterialModalBottomSheet(
                                 expand: true,
@@ -170,7 +173,7 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                               ),
                             ),
                             SettingsTile.navigation(
-                              title: Text("reset_password".tr()),
+                              title: Text('reset_password'.tr()),
                               leading: const Icon(LucideIcons.lock),
                               onPressed: (context) => _handlePasswordReset(context),
                             ),
@@ -179,19 +182,23 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                                 clinicSettingProvider.togglePauseStatus(value);
                               },
                               initialValue: clinicSettingProvider.isPaused,
-                              title: Text("pause_profile".tr()),
+                              title: Text('pause_profile'.tr()),
                               leading: const Icon(LucideIcons.pauseCircle),
                             ),
                             SettingsTile.navigation(
-                              title: Text("qr_code".tr()),
+                              title: Text('qr_code'.tr()),
                               leading: const Icon(LucideIcons.qrCode),
                               onPressed: (_) => _showQrDialog(context, clinicUid),
                             ),
                             SettingsTile.navigation(
-                              title: Text("log_out".tr()),
+                              title: Text('log_out'.tr()),
                               leading: const Icon(LucideIcons.logOut),
-                              onPressed: (_) {
-                                FirebaseAuth.instance.signOut();
+                              onPressed: (_) async {
+                                await FirestoreHelper.signOutWithPendingWrites();
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.remove('role');
+                                await prefs.remove('patient_phone');
+                                if (!context.mounted) return;
                                 Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(builder: (ctx) => const IntroScreen()),
@@ -200,17 +207,17 @@ class _ClinicsettingsState extends State<Clinicsettings> {
                               },
                             ),
                             SettingsTile.navigation(
-                              title: Text("terms_of_service".tr()),
+                              title: Text('terms_of_service'.tr()),
                               leading: const Icon(LucideIcons.fileText),
-                              onPressed: (context) => _navigateToMarkdown(context, "terms_of_service".tr(), "terms_of_service.md"),
+                              onPressed: (context) => _navigateToMarkdown(context, 'terms_of_service'.tr(), 'terms_of_service.md'),
                             ),
                             SettingsTile.navigation(
-                              title: Text("privacy_policy".tr()),
+                              title: Text('privacy_policy'.tr()),
                               leading: const Icon(LucideIcons.fileLock),
-                              onPressed: (context) => _navigateToMarkdown(context, "privacy_policy".tr(), "privacy_policy.md"),
+                              onPressed: (context) => _navigateToMarkdown(context, 'privacy_policy'.tr(), 'privacy_policy.md'),
                             ),
                             SettingsTile.navigation(
-                              title: Text("delete_account".tr(), style: const TextStyle(color: Colors.red)),
+                              title: Text('delete_account'.tr(), style: const TextStyle(color: Colors.red)),
                               leading: const Icon(LucideIcons.trash2, color: Colors.red),
                               onPressed: (_) => _showDeleteAccountDialog(context),
                             ),
@@ -233,49 +240,49 @@ class _ClinicsettingsState extends State<Clinicsettings> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("language".tr()),
+          title: Text('language'.tr()),
           content: StatefulBuilder(
             builder: (context, setState) {
               Locale selectedLocale = context.locale;
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  RadioListTile<Locale>(
-                    title: const Text('English'),
-                    value: const Locale('en'),
-                    groupValue: selectedLocale,
-                    onChanged: (Locale? value) async {
-                      if (value != null) {
-                        await context.setLocale(value);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                  RadioListTile<Locale>(
-                    title: const Text('Français'),
-                    value: const Locale('fr'),
-                    groupValue: selectedLocale,
-                    onChanged: (Locale? value) async {
-                      if (value != null) {
-                        await context.setLocale(value);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                  RadioListTile<Locale>(
-                    title: const Text('العربية'),
-                    value: const Locale('ar'),
-                    groupValue: selectedLocale,
-                    onChanged: (Locale? value) async {
-                      if (value != null) {
-                        await context.setLocale(value);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
+                   RadioListTile<Locale>(
+                     title: Text('english'.tr()),
+                     value: const Locale('en'),
+                     groupValue: selectedLocale,
+                     onChanged: (Locale? value) async {
+                       if (value != null) {
+                         await context.setLocale(value);
+                         if (!context.mounted) return;
+                         Navigator.pop(context);
+                       }
+                     },
+                   ),
+                   RadioListTile<Locale>(
+                     title: Text('french'.tr()),
+                     value: const Locale('fr'),
+                     groupValue: selectedLocale,
+                     onChanged: (Locale? value) async {
+                       if (value != null) {
+                         await context.setLocale(value);
+                         if (!context.mounted) return;
+                         Navigator.pop(context);
+                       }
+                     },
+                   ),
+                   RadioListTile<Locale>(
+                     title: Text('arabic'.tr()),
+                     value: const Locale('ar'),
+                     groupValue: selectedLocale,
+                     onChanged: (Locale? value) async {
+                       if (value != null) {
+                         await context.setLocale(value);
+                         if (!context.mounted) return;
+                         Navigator.pop(context);
+                       }
+                     },
+                   ),
                 ],
               );
             },
@@ -290,7 +297,7 @@ class _ClinicsettingsState extends State<Clinicsettings> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("qr_code".tr()),
+        title: Text('qr_code'.tr()),
         content: SizedBox(
           width: 250,
           height: 250,
@@ -346,17 +353,17 @@ class _ClinicsettingsState extends State<Clinicsettings> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("delete_account_confirmation_title".tr()),
+        title: Text('delete_account_confirmation_title'.tr()),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("delete_account_confirmation_message".tr()),
+            Text('delete_account_confirmation_message'.tr()),
             const SizedBox(height: 16),
             TextField(
               controller: passwordController,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: "password".tr(),
+                labelText: 'password'.tr(),
                 border: const OutlineInputBorder(),
               ),
             ),
@@ -365,7 +372,7 @@ class _ClinicsettingsState extends State<Clinicsettings> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text("cancel".tr()),
+            child: Text('cancel'.tr()),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -386,7 +393,7 @@ class _ClinicsettingsState extends State<Clinicsettings> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text("delete".tr()),
+            child: Text('delete'.tr()),
           ),
         ],
       ),

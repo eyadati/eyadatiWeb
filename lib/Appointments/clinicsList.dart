@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ClinicSearchProvider extends ChangeNotifier {
   final FirebaseFirestore firestore;
@@ -40,6 +41,7 @@ class ClinicSearchProvider extends ChangeNotifier {
 
   ClinicSearchProvider({required this.firestore, required this.auth}) {
     _initialize();
+    _loadCurrentUserTestStatus();
   }
 
   // Getters
@@ -48,6 +50,9 @@ class ClinicSearchProvider extends ChangeNotifier {
   bool get isLocationLoading => _isLocationLoading;
   bool get isLocationEnabled => _currentLocation != null;
   bool get hasMore => _hasMore;
+
+  // Test status tracking
+  bool _userTestStatus = false;
   String? get error => _error;
   String? get userCity => _userCity;
   String? get selectedCity => _selectedCity;
@@ -60,16 +65,59 @@ class ClinicSearchProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     try {
       final user = auth.currentUser;
-      if (user == null) return;
-
+      
       // Proactively request location on init to show distance
       await requestLocation(silent: true);
-
-      final doc = await firestore.collection("users").doc(user.uid).get();
-      _userCity = doc.data()?["city"]?.toString();
+      
+      // Try to get city from Firestore (for clinics with /users/{uid})
+      if (user != null) {
+        final doc = await firestore.collection('users').doc(user.uid).get();
+        _userCity = doc.data()?['city']?.toString();
+        
+        // Load user's test status
+        final data = doc.data();
+        if (data != null) {
+          _userTestStatus = data['test'] ?? false;
+        }
+      }
+      
+      // Also check SharedPreferences for patient city (patients don't have /users/{uid})
+      if (_userCity == null) {
+        final prefs = await SharedPreferences.getInstance();
+        _userCity = prefs.getString('patient_city');
+      }
+      
+      // Set selected city to user's city as default
+      if (_userCity != null) {
+        _selectedCity = _userCity;
+      }
+      
       notifyListeners();
     } catch (e) {
-      debugPrint("Init error: $e");
+      debugPrint('Init error: $e');
+    }
+  }
+
+  Future<void> _loadCurrentUserTestStatus() async {
+    // This method is kept for backward compatibility but functionality is now in _initialize
+    // In a real implementation, you might want to refresh the test status periodically
+    try {
+      final user = auth.currentUser;
+      if (user != null) {
+        final userDoc = await firestore
+            .collection('users')
+            .doc(user.uid)
+            .get(const GetOptions(source: Source.server));
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          if (data != null) {
+            _userTestStatus = data['test'] ?? false;
+            notifyListeners();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading user test status: $e');
     }
   }
 
@@ -87,7 +135,7 @@ class ClinicSearchProvider extends ChangeNotifier {
       }
     } catch (e) {
       _error = e.toString();
-      debugPrint("Location error: $e");
+      debugPrint('Location error: $e');
     } finally {
       if (!silent) {
         _isLocationLoading = false;
@@ -119,16 +167,17 @@ class ClinicSearchProvider extends ChangeNotifier {
       List<Map<String, dynamic>> fetchedClinics = [];
 
       // Unified Simple Query: Fetch clinics by city and active status
-      Query<Map<String, dynamic>> query = firestore
-          .collection("clinics")
-          .where("paused", isEqualTo: false);
+  Query<Map<String, dynamic>> query = firestore
+      .collection('clinics')
+      .where('paused', isEqualTo: false)
+      .where('test', isEqualTo: _userTestStatus);
 
       if (!_favoritesOnly && cityToQuery != null) {
-        query = query.where("city", isEqualTo: cityToQuery);
+        query = query.where('city', isEqualTo: cityToQuery);
       }
 
       if (_selectedSpecialty != null) {
-        query = query.where("specialty", isEqualTo: _selectedSpecialty);
+        query = query.where('specialty', isEqualTo: _selectedSpecialty);
       }
 
       if (isNextPage && _lastDocument != null) {
@@ -157,7 +206,7 @@ class ClinicSearchProvider extends ChangeNotifier {
             );
           }
         }
-        return {'id': doc.id, ...data, if (dist != null) 'distance': dist};
+        return {'id': doc.id, ...data, 'distance': ?dist};
       }).where((c) {
         // Soft-filter expired subscriptions client-side to ensure search works during testing
         final endDate = Clinic.parseDateTime(c['subscriptionEndDate']);
@@ -193,8 +242,8 @@ class ClinicSearchProvider extends ChangeNotifier {
         _currentClinics = fetchedClinics;
       }
     } catch (e) {
-      _error = "error_fetching_clinics".tr(args: [e.toString()]);
-      debugPrint("Fetch error: $e");
+      _error = 'error_fetching_clinics'.tr(args: [e.toString()]);
+      debugPrint('Fetch error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -309,9 +358,9 @@ class _InitialFilterDialogState extends State<_InitialFilterDialog> {
           Text('please_select_filters_to_find_clinics'.tr()),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _tempCity,
+            initialValue: _tempCity,
             decoration: InputDecoration(
-              labelText: "city".tr(),
+              labelText: 'city'.tr(),
               prefixIcon: const Icon(LucideIcons.mapPin),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -324,9 +373,9 @@ class _InitialFilterDialogState extends State<_InitialFilterDialog> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _tempSpecialty,
+            initialValue: _tempSpecialty,
             decoration: InputDecoration(
-              labelText: "specialty".tr(),
+              labelText: 'specialty'.tr(),
               prefixIcon: const Icon(LucideIcons.stethoscope),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -444,7 +493,7 @@ class _ClinicBottomSheetContent extends StatelessWidget {
     if (provider.isLoading && provider.currentClinics.isEmpty) {
       return ListView.builder(
         itemCount: 5,
-        itemBuilder: (_, __) => const ClinicCardSkeleton(),
+        itemBuilder: (_, _) => const ClinicCardSkeleton(),
       );
     }
 
@@ -489,14 +538,14 @@ class _ClinicBottomSheetContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: tCity,
+                initialValue: tCity,
                 items: provider.algerianCitiesList
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 onChanged: (v) => setState(() => tCity = v),
               ),
               DropdownButtonFormField<String>(
-                value: tSpec,
+                initialValue: tSpec,
                 items: provider.specialtiesList
                     .map((s) => DropdownMenuItem(value: s, child: Text(s.tr())))
                     .toList(),

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:eyadati/utils/network_helper.dart';
-import 'package:eyadati/utils/connectivity_service.dart'; // Add ConnectivityService import
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 // ================ PROVIDER ================
@@ -14,13 +13,11 @@ import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPre
 class UserEditProfileProvider extends ChangeNotifier {
   final FirebaseAuth auth;
   final FirebaseFirestore firestore;
-  final ConnectivityService? _connectivityService; // Add this field
 
   UserEditProfileProvider({
     required this.auth,
     required this.firestore,
-    ConnectivityService? connectivityService, // Add this parameter
-  }) : _connectivityService = connectivityService {
+  }) {
     _initializeData();
   }
 
@@ -184,10 +181,6 @@ class UserEditProfilePage extends StatelessWidget {
       create: (context) => UserEditProfileProvider(
         auth: FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
-        connectivityService: Provider.of<ConnectivityService>(
-          context,
-          listen: false,
-        ),
       ),
       child: const UserEditProfileView(),
     );
@@ -203,6 +196,8 @@ class UserEditProfileView extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text('edit_profile'.tr()),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),

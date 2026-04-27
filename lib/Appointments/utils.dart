@@ -1,7 +1,6 @@
 import 'package:eyadati/utils/models/clinic_model.dart';
 import 'package:eyadati/clinic/clinic_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxdart/rxdart.dart';
@@ -44,7 +43,7 @@ class AppStartupService {
         if (isClinic) _setupClinicStream() else _cacheUserData(),
       ]);
     } catch (e) {
-      debugPrint("Startup error: $e");
+      debugPrint('Startup error: $e');
     } finally {
       _isInitialized = true;
     }
@@ -58,7 +57,7 @@ class AppStartupService {
         .timeout(
           const Duration(seconds: 15),
           onTimeout: (sink) {
-            debugPrint("⚠️ Clinic stream timed out.");
+            debugPrint('⚠️ Clinic stream timed out.');
             _clinicSubject.add(null); // Signal no clinic data
           },
         )
@@ -85,10 +84,10 @@ class AppStartupService {
       final doc = await ref.get(GetOptions(source: Source.server));
       if (doc.exists) {
         onSuccess(doc.data() as Map<String, dynamic>);
-        debugPrint("✅ Data loaded from server and cache: ${ref.path}");
+        debugPrint('✅ Data loaded from server and cache: ${ref.path}');
       }
     } catch (e) {
-      debugPrint("❌ Failed to load ${ref.path}: $e");
+      debugPrint('❌ Failed to load ${ref.path}: $e');
     }
   }
 

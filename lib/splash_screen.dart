@@ -16,16 +16,21 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Timer(
       const Duration(seconds: 2),
-      () => Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Initializer()),
-      ),
+      () {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Initializer()),
+          );
+        }
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(child: Image.asset('assets/logo.png', height: 150)),
     );
   }
@@ -53,7 +58,8 @@ class _InitializerState extends State<Initializer> {
       future: _decisionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
+            backgroundColor: Colors.white,
             body: Center(child: CircularProgressIndicator()),
           );
         }

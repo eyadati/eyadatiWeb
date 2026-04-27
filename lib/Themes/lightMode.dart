@@ -22,9 +22,9 @@ ThemeData clinicLightTheme = ThemeData(
     outline: const Color(0xFFE0E0E0),
     outlineVariant: const Color(0xFFF0F0F0),
   ),
-  scaffoldBackgroundColor: const Color(0xFFE0E0E0),
+  scaffoldBackgroundColor: const Color(0xFFEEEEEE),
   appBarTheme: AppBarTheme(
-    backgroundColor: Color(0xFFE0E0E0),
+    backgroundColor: Color(0xFFEEEEEE),
     foregroundColor: _primaryColor,
     elevation: 0,
     scrolledUnderElevation: 0,

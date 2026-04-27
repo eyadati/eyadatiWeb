@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:eyadati/utils/skeletons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ManagementProvider extends ChangeNotifier {
@@ -38,9 +39,9 @@ class ManagementProvider extends ChangeNotifier {
   }
 
   Stream<QuerySnapshot> get appointmentsStream => firestore
-      .collection("clinics")
+      .collection('clinics')
       .doc(clinicUid)
-      .collection("appointments")
+      .collection('appointments')
       .snapshots();
 
   bool get isLoading => _isLoading;
@@ -68,7 +69,7 @@ class ManagementProvider extends ChangeNotifier {
     if (_clinicData == null) return false;
 
     final workingDays =
-        (_clinicData!["workingDays"] as List?)
+        (_clinicData!['workingDays'] as List?)
             ?.map((e) => _parseInt(e, 0))
             .toList() ??
         [];
@@ -88,8 +89,8 @@ class ManagementProvider extends ChangeNotifier {
         await _fetchAllAppointments();
       }
     } catch (e) {
-      debugPrint("ManagementProvider initialization error: $e");
-      _errorMessage = "Failed to load appointment data. Pull to retry.";
+      debugPrint('ManagementProvider initialization error: $e');
+      _errorMessage = 'Failed to load appointment data. Pull to retry.';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -98,13 +99,13 @@ class ManagementProvider extends ChangeNotifier {
 
   Future<void> _fetchClinicData() async {
     final doc = await firestore
-        .collection("clinics")
+        .collection('clinics')
         .doc(clinicUid)
         .get(GetOptions(source: Source.cache));
     if (doc.exists) {
       _clinicData = doc.data();
     } else {
-      throw Exception("Clinic not found");
+      throw Exception('Clinic not found');
     }
   }
 
@@ -122,12 +123,12 @@ class ManagementProvider extends ChangeNotifier {
 
       // Skip non-working days entirely
       if (!isWorkingDay(day)) {
-        debugPrint("Skipping non-working day: $day");
+        debugPrint('Skipping non-working day: $day');
         continue;
       }
 
       final slotDurationMinutes = _parseInt(
-        _clinicData!["duration"] ?? _clinicData!["Duration"],
+        _clinicData!['duration'] ?? _clinicData!['Duration'],
         60,
       );
       final slots = await bookingLogic.generateSlots(
@@ -139,7 +140,7 @@ class ManagementProvider extends ChangeNotifier {
       if (slots.isNotEmpty) {
         _weekSlots.add(slots);
         _visibleDays.add(day);
-        debugPrint("Added day with ${slots.length} slots: $day");
+        debugPrint('Added day with ${slots.length} slots: $day');
       }
     }
   }
@@ -152,11 +153,11 @@ class ManagementProvider extends ChangeNotifier {
     final endDate = _visibleDays.last.add(const Duration(days: 1));
 
     final snapshot = await firestore
-        .collection("clinics")
+        .collection('clinics')
         .doc(clinicUid)
-        .collection("appointments")
-        .where("date", isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-        .where("date", isLessThan: Timestamp.fromDate(endDate))
+        .collection('appointments')
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+        .where('date', isLessThan: Timestamp.fromDate(endDate))
         .get();
 
     _onlineAppointmentsCount.clear();
@@ -164,7 +165,7 @@ class ManagementProvider extends ChangeNotifier {
 
     for (var doc in snapshot.docs) {
       final data = doc.data();
-      final appointmentTime = Clinic.parseDateTime(data["date"]);
+      final appointmentTime = Clinic.parseDateTime(data['date']);
       final slotKey = _getSlotKey(appointmentTime);
       final isManual = data['isManual'] == true;
 
@@ -183,7 +184,7 @@ class ManagementProvider extends ChangeNotifier {
 
   String _getSlotKey(DateTime slotTime) {
     // Ensure local time consistency to match BookingLogic's slot generation
-    return "${slotTime.year}-${_twoDigits(slotTime.month)}-${_twoDigits(slotTime.day)}T${_twoDigits(slotTime.hour)}:${_twoDigits(slotTime.minute)}Z";
+    return '${slotTime.year}-${_twoDigits(slotTime.month)}-${_twoDigits(slotTime.day)}T${_twoDigits(slotTime.hour)}:${_twoDigits(slotTime.minute)}Z';
   }
 
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -203,7 +204,7 @@ class ManagementProvider extends ChangeNotifier {
 
   int getStaffCount() {
     if (_clinicData == null) return 1;
-    return _parseInt(_clinicData!["staff"], 1);
+    return _parseInt(_clinicData!['staff'], 1);
   }
 
   bool isSlotFull(DateTime slot) {
@@ -235,9 +236,9 @@ class ManagementProvider extends ChangeNotifier {
 
   void removeManualAppointment(String docId) async {
     await firestore
-        .collection("clinics")
+        .collection('clinics')
         .doc(clinicUid)
-        .collection("appointments")
+        .collection('appointments')
         .doc(docId)
         .delete();
     await _fetchAllAppointments();
@@ -247,11 +248,11 @@ class ManagementProvider extends ChangeNotifier {
   String getSlotDisplayText(DateTime slot) {
     final localSlot = slot.toLocal(); // Display in local time for user
     final slotDurationMinutes = _parseInt(
-      _clinicData!["Duration"] ?? _clinicData!["duration"],
+      _clinicData!['Duration'] ?? _clinicData!['duration'],
       60,
     );
     final endTime = localSlot.add(Duration(minutes: slotDurationMinutes));
-    return "${_twoDigits(localSlot.hour)}:${_twoDigits(localSlot.minute)} - ${_twoDigits(endTime.hour)}:${_twoDigits(endTime.minute)}";
+    return '${_twoDigits(localSlot.hour)}:${_twoDigits(localSlot.minute)} - ${_twoDigits(endTime.hour)}:${_twoDigits(endTime.minute)}';
   }
 
   Future<void> refreshData() async {
@@ -297,7 +298,13 @@ class _ManagementScreenState extends State<ManagementScreen> {
               final provider = context.watch<ManagementProvider>();
 
               if (provider.isLoading) {
-                return const Center(child: CircularProgressIndicator());
+                return ListView.builder(
+                  itemCount: 3,
+                  itemBuilder: (_, _) => const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: AppointmentCardSkeleton(),
+                  ),
+                );
               }
 
               if (provider.errorMessage != null) {
@@ -318,8 +325,12 @@ class _ManagementScreenState extends State<ManagementScreen> {
                         if (snapshot.connectionState ==
                                 ConnectionState.waiting &&
                             !snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
+                          return ListView.builder(
+                            itemCount: 3,
+                            itemBuilder: (_, _) => const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: AppointmentCardSkeleton(),
+                            ),
                           );
                         }
 
@@ -442,7 +453,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             ElevatedButton.icon(
               onPressed: provider.refreshData,
               icon: const Icon(LucideIcons.refreshCcw),
-              label: Text("retry".tr()),
+              label: Text('retry'.tr()),
             ),
           ],
         ),
@@ -462,7 +473,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
           ),
           SizedBox(height: 16),
           Text(
-            "no_working_days_found".tr(),
+            'no_working_days_found'.tr(),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 16,
@@ -491,8 +502,8 @@ class _ManagementScreenState extends State<ManagementScreen> {
           const SizedBox(height: 16),
           Text(
             isWorkingDay
-                ? "no_slots_available_today".tr()
-                : "clinic_is_closed".tr(),
+                ? 'no_slots_available_today'.tr()
+                : 'clinic_is_closed'.tr(),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 16,
@@ -576,7 +587,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                "no_manual_appointments".tr(),
+                'no_manual_appointments'.tr(),
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -618,7 +629,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         title: Text(
-          app['userName'] ?? '',
+          app['patientName'] ?? '',
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         subtitle: Text(
@@ -628,20 +639,30 @@ class _ManagementScreenState extends State<ManagementScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!kIsWeb)
-              IconButton(
-                icon: const Icon(
-                  LucideIcons.phone,
-                  color: Colors.green,
-                  size: 20,
-                ),
-                onPressed: () async {
-                  final Uri launchUri = Uri(scheme: 'tel', path: app['phone'] ?? '');
-                  if (await canLaunchUrl(launchUri)) {
-                    await launchUrl(launchUri);
-                  }
-                },
+            IconButton(
+              icon: Icon(
+                LucideIcons.phone,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
               ),
+              onPressed: () async {
+                final phoneNumber = app['phone'] ?? '';
+                if (phoneNumber.isEmpty) return;
+                
+                final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+                if (await canLaunchUrl(launchUri)) {
+                  await launchUrl(launchUri);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('this_feature_works_only_on_phone'.tr()),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
             IconButton(
               icon: Icon(
                 LucideIcons.trash2,
@@ -668,7 +689,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("add_manual_appointment".tr()),
+        title: Text('add_manual_appointment'.tr()),
         content: Form(
           key: formKey,
           child: Column(
@@ -676,17 +697,17 @@ class _ManagementScreenState extends State<ManagementScreen> {
             children: [
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: "full_name".tr()),
+                decoration: InputDecoration(labelText: 'full_name'.tr()),
                 validator: (v) =>
-                    v == null || v.isEmpty ? "required".tr() : null,
+                    v == null || v.isEmpty ? 'required'.tr() : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: phoneController,
-                decoration: InputDecoration(labelText: "phone_number".tr()),
+                decoration: InputDecoration(labelText: 'phone_number'.tr()),
                 keyboardType: TextInputType.phone,
                 validator: (v) =>
-                    v == null || v.isEmpty ? "required".tr() : null,
+                    v == null || v.isEmpty ? 'required'.tr() : null,
               ),
             ],
           ),
@@ -694,7 +715,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("cancel".tr()),
+            child: Text('cancel'.tr()),
           ),
           ElevatedButton(
             onPressed: () {
@@ -707,7 +728,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                 Navigator.pop(context);
               }
             },
-            child: Text("confirm".tr()),
+            child: Text('confirm'.tr()),
           ),
         ],
       ),

@@ -72,7 +72,7 @@ class PaymentService {
         return count;
       }
     } catch (e) {
-      debugPrint("Error syncing appointment count: $e");
+      debugPrint('Error syncing appointment count: $e');
     }
     return null;
   }
@@ -197,7 +197,7 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
   String? _errorMessage;
   final client = ChargilyClient(
     ChargilyConfig.test(
-      apiKey: "test_sk_cCDBJ3lBdjpzoWKiOwdbW7O6KsVHJf0MRFPXb1Ld",
+      apiKey: 'test_sk_cCDBJ3lBdjpzoWKiOwdbW7O6KsVHJf0MRFPXb1Ld',
     ),
   );
 
@@ -220,23 +220,23 @@ class _SubscribeScreenState extends State<SubscribeScreen> {
       if (client.config.apiKey == null) {
         // SIMULATION MODE
         await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text("Simulation Mode"),
-              content: const Text(
-                "The Chargily API Key is missing in lib/chargili/paiment.dart. \n\nIn a real build, this would open the payment gateway. For testing, we'll simulate a successful payment trigger.",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("OK"),
-                ),
-              ],
-            ),
-          );
-        }
+         if (mounted) {
+           showDialog(
+             context: context,
+             builder: (ctx) => AlertDialog(
+               title: Text('simulation_mode'.tr()),
+               content: Text(
+                 '${'the_chargily_api_key_is_missing_in_lib_chargili_paiment_dot_dart'.tr()}\n\n${'in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger'.tr()}',
+               ),
+               actions: [
+                 TextButton(
+                   onPressed: () => Navigator.pop(ctx),
+                   child: Text('ok'.tr()),
+                 ),
+               ],
+             ),
+           );
+         }
         return;
       }
 

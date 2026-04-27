@@ -4,17 +4,22 @@ import 'package:easy_localization/easy_localization.dart';
 
 import 'package:eyadati/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eyadati/flow.dart';
 import 'package:eyadati/intro.dart';
 import 'package:eyadati/Themes/ThemeProvider.dart';
+import 'package:eyadati/utils/clear_firestore.dart';
 import 'package:eyadati/utils/connectivity_service.dart';
+import 'package:eyadati/utils/pwa_display_mode.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:pwa_install/pwa_install.dart';
 import 'dart:ui';
+// flutter pub add web - then import 'package:web/web.dart' for web-only features
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html show window;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +51,38 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
+    // Enable Firestore offline persistence
+    if (!kIsWeb) {
+      // Native platforms - full persistence
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    } else {
+      // Web platform - limited persistence (50MB default)
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: 50 * 1024 * 1024, // 50MB
+      );
+    }
+
+    // Request persistent storage for PWA
+    if (kIsWeb) {
+      try {
+        final storage = html.window.navigator.storage;
+        if (storage != null) {
+          final persisted = await storage.persist();
+          if (persisted) {
+            debugPrint('Storage persistence granted');
+          } else {
+            debugPrint('Storage persistence denied');
+          }
+        }
+      } catch (e) {
+        debugPrint('Storage persistence not available: $e');
+      }
+    }
+
     FlutterError.onError = (errorDetails) {
       debugPrint(errorDetails.toString());
     };
@@ -65,6 +102,7 @@ void main() async {
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => ConnectivityService()),
+          ChangeNotifierProvider(create: (_) => PwaDisplayModeProvider()),
         ],
         child: EasyLocalization(
           supportedLocales: const [Locale('en'), Locale('fr'), Locale('ar')],
@@ -148,7 +186,7 @@ class _EyadatiAppState extends State<EyadatiApp> {
           PointerDeviceKind.mouse,
           PointerDeviceKind.touch,
           PointerDeviceKind.stylus,
-          PointerDeviceKind.unknown
+          PointerDeviceKind.unknown,
         },
       ),
       theme: themeProvider.themeData.copyWith(
@@ -218,7 +256,10 @@ class _PWAInstallWrapperState extends State<PWAInstallWrapper> {
               borderRadius: BorderRadius.circular(16),
               color: Theme.of(context).colorScheme.primaryContainer,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     const Icon(LucideIcons.download, size: 24),
@@ -229,7 +270,9 @@ class _PWAInstallWrapperState extends State<PWAInstallWrapper> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            "install_eyadati".tr() == "install_eyadati" ? "Install Eyadati" : "install_eyadati".tr(),
+                            "install_eyadati".tr() == "install_eyadati"
+                                ? "Install Eyadati"
+                                : "install_eyadati".tr(),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(

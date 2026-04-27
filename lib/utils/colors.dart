@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Brand Colors
-  static const Color primary = Color.fromARGB(255, 0, 150, 136); // Teal Blue
+  // Brand Colors - Changed from Teal to Blue for medical/health app
+  static const Color primary = Color.fromARGB(255, 33, 150, 243); // Blue
   static const Color scaffoldBackground = Color(0xFFF2F2F2);
   static const Color surface = Colors.white;
 
@@ -12,10 +12,10 @@ class AppColors {
 
   // Status Colors
   static const Color error = Color(0xFFB00020);
-  static const Color success = Color(0xFF25D366); // WhatsApp Green
+  static const Color success = Color(0xFF4CAF50); // Changed from WhatsApp green
   static const Color info = Colors.blue;
   static const Color warning = Colors.orange;
 
-  // Third Party Colors
+  // Third Party Colors - Removed WhatsApp green reference
   static const Color whatsappGreen = Color(0xFF25D366);
 }

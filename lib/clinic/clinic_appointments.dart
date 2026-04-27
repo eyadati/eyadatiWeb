@@ -14,6 +14,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:eyadati/utils/skeletons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Manages clinic appointment state with optimized Firestore queries
@@ -191,7 +192,7 @@ class ClinicAppointmentProvider extends ChangeNotifier {
 
       _heatMapData = newData;
     } catch (e) {
-      debugPrint("Error fetching heatmap data: $e");
+      debugPrint('Error fetching heatmap data: $e');
     } finally {
       _isLoadingHeatMap = false;
       notifyListeners();
@@ -283,7 +284,11 @@ class ClinicAppointments extends StatelessWidget {
   final String clinicId;
   final bool showAppBar;
 
-  const ClinicAppointments({super.key, required this.clinicId, this.showAppBar = true});
+  const ClinicAppointments({
+    super.key,
+    required this.clinicId,
+    this.showAppBar = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -318,8 +323,6 @@ class _ClinicAppointmentsView extends StatefulWidget {
 
 class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
     with WidgetsBindingObserver {
-  final ScrollController _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
@@ -329,7 +332,6 @@ class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -354,100 +356,103 @@ class _ClinicAppointmentsViewState extends State<_ClinicAppointmentsView>
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: widget.showAppBar ? AppBar(
-        title: Image.asset('assets/logo.png', height: 120),
-        centerTitle: true,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-
-        leading: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('clinics')
-              .doc(navProvider.clinicUid)
-              .collection('appointments')
-              .snapshots(),
-          builder: (context, snapshot) {
-            int unreadCount = 0;
-            if (snapshot.hasData) {
-              unreadCount = snapshot.data!.docs.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                return data['isRead'] == false || !data.containsKey('isRead');
-              }).length;
-            }
-
-            return IconButton(
-              onPressed: () {
-                showMaterialModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: navProvider,
-                    child: NotificationCenter(clinicUid: navProvider.clinicUid),
-                  ),
-                );
-              },
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    LucideIcons.bell,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 25,
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 2,
-                      top: 2,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                      ),
-                    ),                ],
-              ),
-            );
-          },
-        ),
-
-        actions: [
-          IconButton(
-            onPressed: () => showMaterialModalBottomSheet(
-              context: context,
-              builder: (context) {
-                return SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.9,
-                  child: Clinicsettings(),
-                );
-              },
-            ),
-            icon: Icon(
-              LucideIcons.settings,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
-      ) : null,
       body: SafeArea(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Column(
-            children: [
-              const SizedBox(height: 5),
-              Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Card(
-                  elevation: 10,
-                  child: const _NormalCalendar(),
-                ),
+        child: Column(
+          children: [
+            Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('clinics')
+                        .doc(navProvider.clinicUid)
+                        .collection('appointments')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int unreadCount = 0;
+                      if (snapshot.hasData) {
+                        unreadCount = snapshot.data!.docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          return data['isRead'] == false ||
+                              !data.containsKey('isRead');
+                        }).length;
+                      }
+
+                      return IconButton(
+                        onPressed: () {
+                          showMaterialModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => ChangeNotifierProvider.value(
+                              value: navProvider,
+                              child: NotificationCenter(
+                                clinicUid: navProvider.clinicUid,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Icon(
+                              LucideIcons.bell,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              size: 25,
+                            ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: 2,
+                                top: 2,
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Theme.of(context).scaffoldBackgroundColor,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    onPressed: () => showMaterialModalBottomSheet(
+                      context: context,
+                      builder: (context) {
+                        return SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.9,
+                          child: Clinicsettings(),
+                        );
+                      },
+                    ),
+                    icon: Icon(
+                      LucideIcons.settings,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
-              const _AppointmentsPanel(),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(6.0),
+              child: Card(
+                color: Theme.of(context).colorScheme.surface,
+                child: const _NormalCalendar(),
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+            // Appointments list below calendar
+            const Expanded(child: _AppointmentsPanel()),
+          ],
         ),
       ),
     );
@@ -479,19 +484,25 @@ class _CalendarContent extends StatelessWidget {
       firstDay: DateTime(2020, 1, 1),
       lastDay: DateTime(2030, 12, 31),
       focusedDay: provider.focusedDay,
-      calendarFormat: CalendarFormat.month,
+
+      calendarFormat: provider.calendarFormat,
+      availableCalendarFormats: const {
+        CalendarFormat.month: 'Month',
+        CalendarFormat.week: 'Week',
+      },
+      onFormatChanged: (format) {
+        provider.updateCalendarFormat(format);
+      },
       selectedDayPredicate: (day) => isSameDay(provider.selectedDate, day),
 
       onDaySelected: (selectedDay, focusedDay) {
         if (!isSameDay(provider.selectedDate, selectedDay)) {
           provider.updateSelectedDate(selectedDay);
+          // provider.updateFocusedDay(focusedDay); // Already handled in updateSelectedDate
         }
       },
       onPageChanged: (focusedDay) {
         provider.updateFocusedDay(focusedDay);
-      },
-      onFormatChanged: (format) {
-        provider.updateCalendarFormat(format);
       },
 
       eventLoader: (day) {
@@ -509,13 +520,59 @@ class _CalendarContent extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
           shape: BoxShape.circle,
         ),
+        todayDecoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        todayTextStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.bold,
+        ),
+        defaultTextStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        weekendTextStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        outsideDaysVisible: false,
+        holidayDecoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer,
+          shape: BoxShape.circle,
+        ),
+        holidayTextStyle: TextStyle(color: Theme.of(context).colorScheme.error),
       ),
 
-      headerStyle: const HeaderStyle(titleCentered: true),
+      headerStyle: HeaderStyle(
+        titleCentered: true,
+        formatButtonVisible: true,
+        titleTextStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+        leftChevronIcon: Icon(
+          Icons.chevron_left,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        rightChevronIcon: Icon(
+          Icons.chevron_right,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+      daysOfWeekStyle: DaysOfWeekStyle(
+        weekdayStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.bold,
+        ),
+        weekendStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
 
+/// Daily appointments list with swipe-to-cancel
 class _AppointmentsPanel extends StatelessWidget {
   const _AppointmentsPanel();
 
@@ -523,9 +580,16 @@ class _AppointmentsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<ClinicAppointmentProvider>();
     final bool isWeb = kIsWeb && MediaQuery.of(context).size.width > 900;
+    final ScrollController scrollController = ScrollController();
 
     if (provider.isInitialLoading && provider.appointments.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView.builder(
+        itemCount: 3,
+        itemBuilder: (_, _) => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: AppointmentCardSkeleton(),
+        ),
+      );
     }
 
     if (provider.appointments.isEmpty) {
@@ -608,262 +672,396 @@ class _AppointmentsPanel extends StatelessWidget {
               ],
             ),
           ),
-        RefreshIndicator(
-          onRefresh: provider.refresh,
-          child: ListView.builder(
-            padding: EdgeInsets.only(bottom: 100),
-            shrinkWrap: true,
-            physics: const ClampingScrollPhysics(),
-            itemCount: appointments.length + 1,
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: provider.refresh,
+            child: Container(
+              padding: const EdgeInsets.only(top: 13),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(13),
+                  topRight: Radius.circular(13),
+                ),
+              ),
+              child: Scrollbar(
+                controller: scrollController,
+                thumbVisibility: isWeb,
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: EdgeInsets.zero,
+                  itemCount: appointments.length + 1,
+                  itemExtent: 120, // Fixed height for performance
                   itemBuilder: (context, index) {
                     if (index == appointments.length) {
-                      return const SizedBox(height: 100);
+                      return const SizedBox(
+                        height: 100,
+                      ); // Space for Floating NavBar
                     }
                     final doc = appointments[index];
                     final appointment = doc.data() as Map<String, dynamic>;
                     final appointmentId = doc.id;
 
                     final slot = Clinic.parseDateTime(appointment['date']);
-                    final isPast = slot.isBefore(DateTime.now());
+                    final now = DateTime.now();
+                    final isPast = slot.isBefore(now);
+                    final appointmentStatus =
+                        appointment['status'] as String? ?? 'upcoming';
+                    final isCancelled = appointmentStatus == 'cancelled';
+
+                    // Determine effective status (cancelled from firestore, passed calculated locally)
+                    final displayStatus = isCancelled
+                        ? 'cancelled'
+                        : (isPast ? 'passed' : 'upcoming');
+
                     final timeFormatted = DateFormat(
                       'HH:mm',
                       context.locale.toString(),
                     ).format(slot);
-                    final name = appointment['userName'] ?? 'Unknown';
-                    final phone = appointment['phone'] ?? 'No phone';
+                    final name = appointment['patientName'] ?? 'unknown_patient'.tr();
+                    final phone = appointment['phone'] ?? 'no_phone'.tr();
                     final isManual = appointment['isManual'] == true;
 
-                    return _buildAppointmentCard(
-                      context: context,
-                      appointment: appointment,
-                      appointmentId: appointmentId,
-                      slot: slot,
-                      isPast: isPast,
-                      timeFormatted: timeFormatted,
-                      name: name,
-                      phone: phone,
-                      isManual: isManual,
-                      isWeb: isWeb,
-                      provider: provider,
+                    // Get status indicator color only (badge, not tile)
+                    Color statusIndicatorColor;
+                    String statusLabel;
+
+                    switch (displayStatus) {
+                      case 'cancelled':
+                        statusIndicatorColor = Theme.of(context).colorScheme.error;
+                        statusLabel = 'cancelled'.tr();
+                        break;
+                      case 'passed':
+                        statusIndicatorColor = Theme.of(context).colorScheme.outline;
+                        statusLabel = 'passed'.tr();
+                        break;
+                      default: // upcoming
+                        statusIndicatorColor = Theme.of(context).colorScheme.primary;
+                        statusLabel = 'upcoming'.tr();
+                    }
+
+                    Widget cardContent = Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      elevation: isWeb ? 2 : 1,
+                      color: Theme.of(context).colorScheme.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: SizedBox(
+                        height: 120,
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Center(
+                                  child: Text(
+                                    timeFormatted,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 18,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(
+                              width: 1,
+                              indent: 20,
+                              endIndent: 20,
+                            ),
+                            Expanded(
+                              child: ListTile(
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: statusIndicatorColor.withAlpha(25),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        statusLabel,
+                                        style: TextStyle(
+                                          color: statusIndicatorColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isWeb) ...[
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: Icon(
+                                          LucideIcons.phone,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                        onPressed: () async {
+                                          final Uri launchUri = Uri(
+                                            scheme: 'tel',
+                                            path: phone,
+                                          );
+                                          if (await canLaunchUrl(launchUri)) {
+                                            await launchUrl(launchUri);
+                                          }
+                                        },
+                                      ),
+                                      if (!isManual)
+                                        IconButton(
+                                          icon: const Icon(
+                                            LucideIcons.userX,
+                                            color: Colors.orange,
+                                          ),
+                                          onPressed: () async {
+                                            final confirmed = await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: Text('the_patient_did_not_show_up'.tr()),
+                                                content: Text('mark_as_absence_confirm'.tr()),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(context).pop(false),
+                                                    child: Text('no'.tr()),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(context).pop(true),
+                                                    child: Text('yes'.tr()),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirmed == true) {
+                                              await ClinicFirestore().updateNoShow(appointmentId, provider.clinicId);
+                                            }
+                                          },
+                                        ),
+                                      IconButton(
+                                        icon: Icon(
+                                          LucideIcons.xCircle,
+                                          color: Theme.of(context).colorScheme.error,
+                                        ),
+                                        onPressed: () async {
+                                          final confirmed = await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: Text('cancel_appointment'.tr()),
+                                              content: Text('are_you_sure_to_cancel_appointment'.tr()),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context, false),
+                                                  child: Text('no'.tr()),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context, true),
+                                                  child: Text('yes'.tr()),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirmed == true) {
+                                            await provider.cancelAppointment(appointmentId, appointment);
+                                          }
+                                        },
+                                      ),
+                                    ] else ...[
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        LucideIcons.chevronLeft,
+                                        color: Theme.of(context).colorScheme.onSurface.withAlpha(100),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                title: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  phone,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+
+                    if (isWeb) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: cardContent,
+                      );
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Slidable(
+                        key: ValueKey(appointmentId),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          extentRatio: isManual ? 0.5 : 0.7,
+                          children: [
+                            SlidableAction(
+                              onPressed: (context) async {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: phone,
+                                );
+                                if (await canLaunchUrl(launchUri)) {
+                                  await launchUrl(launchUri);
+                                }
+                              },
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary,
+                              icon: LucideIcons.phone,
+                              label: 'call'.tr(),
+                              borderRadius: const BorderRadius.horizontal(
+                                left: Radius.circular(12),
+                              ),
+                            ),
+                            if (!isManual)
+                              SlidableAction(
+                                onPressed: (context) async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('cancelled'.tr()),
+                                      content: Text(
+                                        'mark_as_no_show_confirm'.tr(),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(false),
+                                          child: Text('no'.tr()),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(true),
+                                          child: Text('yes'.tr()),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed == true) {
+                                    try {
+                                      await ClinicFirestore().updateNoShow(
+                                        appointmentId,
+                                        provider.clinicId,
+                                      );
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'no_show_marked_success'.tr(),
+                                          ),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text(e.toString())),
+                                      );
+                                    }
+                                  }
+                                },
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                icon: LucideIcons.userX,
+                                label: 'cancelled'.tr(),
+                              ),
+                            SlidableAction(
+                              onPressed: (context) async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text('cancel_appointment'.tr()),
+                                    content: Text(
+                                      'are_you_sure_to_cancel_appointment'.tr(),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: Text('no'.tr()),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: Text(
+                                          'yes'.tr(),
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.error,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed != true) return;
+
+                                try {
+                                  await provider.cancelAppointment(
+                                    appointmentId,
+                                    appointment,
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'appointment_cancelled_success'.tr(),
+                                      ),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString())),
+                                  );
+                                }
+                              },
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                              foregroundColor: Colors.white,
+                              icon: LucideIcons.xCircle,
+                              label: 'cancel'.tr(),
+                              borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(12),
+                              ),
+                            ),
+                          ],
+                        ),
+                        child: cardContent,
+                      ),
                     );
                   },
                 ),
+              ),
+            ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildAppointmentCard({
-    required BuildContext context,
-    required Map<String, dynamic> appointment,
-    required String appointmentId,
-    required DateTime slot,
-    required bool isPast,
-    required String timeFormatted,
-    required String name,
-    required String phone,
-    required bool isManual,
-    required bool isWeb,
-    required ClinicAppointmentProvider provider,
-  }) {
-    final cardContent = Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: 10,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: SizedBox(
-        height: 120,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 100,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Center(
-                  child: Text(
-                    timeFormatted,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                      color: isPast
-                        ? Theme.of(context).colorScheme.onSurface.withAlpha(150)
-                        : Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const VerticalDivider(width: 1, indent: 20, endIndent: 20),
-            Expanded(
-              child: ListTile(
-                trailing: isWeb
-                  ? _buildWebActions(context, phone, isManual, appointmentId, provider)
-                  : Icon(
-                      LucideIcons.chevronLeft,
-                      color: Theme.of(context).colorScheme.onSurface.withAlpha(100),
-                    ),
-                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                subtitle: Text(phone, style: const TextStyle(fontWeight: FontWeight.w500)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (isWeb) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: cardContent,
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Slidable(
-        key: ValueKey(appointmentId),
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: isManual ? 0.5 : 0.7,
-          children: [
-            SlidableAction(
-              onPressed: (context) async {
-                final Uri launchUri = Uri(scheme: 'tel', path: phone);
-                if (await canLaunchUrl(launchUri)) {
-                  await launchUrl(launchUri);
-                }
-              },
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              icon: LucideIcons.phone,
-              label: 'call'.tr(),
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
-            ),
-            if (!isManual)
-              SlidableAction(
-                onPressed: (context) => _markNoShow(context, appointmentId, provider),
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                icon: LucideIcons.userX,
-                label: 'no_show'.tr(),
-              ),
-            SlidableAction(
-              onPressed: (context) => _cancelAppointment(context, appointment, appointmentId, provider),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Colors.white,
-              icon: LucideIcons.xCircle,
-              label: 'cancel'.tr(),
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-            ),
-          ],
-        ),
-        child: cardContent,
-      ),
-    );
-  }
-
-  Widget _buildWebActions(BuildContext context, String phone, bool isManual, String appointmentId, ClinicAppointmentProvider provider) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(LucideIcons.phone, color: Colors.green),
-          onPressed: () async {
-            final Uri launchUri = Uri(scheme: 'tel', path: phone);
-            if (await canLaunchUrl(launchUri)) {
-              await launchUrl(launchUri);
-            }
-          },
-        ),
-        if (!isManual)
-          IconButton(
-            icon: const Icon(LucideIcons.userX, color: Colors.orange),
-            onPressed: () => _markNoShow(context, appointmentId, provider),
-          ),
-        IconButton(
-          icon: Icon(LucideIcons.xCircle, color: Theme.of(context).colorScheme.error),
-          onPressed: () => _showCancelDialog(context, appointmentId, provider),
         ),
       ],
     );
-  }
-
-  Future<void> _markNoShow(BuildContext context, String appointmentId, ClinicAppointmentProvider provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('mark_as_no_show'.tr()),
-        content: Text('mark_as_no_show_confirm'.tr()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('no'.tr())),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('yes'.tr())),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ClinicFirestore().updateNoShow(appointmentId, provider.clinicId);
-    }
-  }
-
-  Future<void> _showCancelDialog(BuildContext context, String appointmentId, ClinicAppointmentProvider provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('cancel_appointment'.tr()),
-        content: Text('are_you_sure_to_cancel_appointment'.tr()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('no'.tr())),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('yes'.tr())),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      try {
-        final doc = provider.appointments.firstWhere((doc) => doc.id == appointmentId);
-        final appointment = doc.data() as Map<String, dynamic>;
-        await provider.cancelAppointment(appointmentId, appointment);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('appointment_cancelled_success'.tr())),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-        }
-      }
-    }
-  }
-
-  Future<void> _cancelAppointment(BuildContext context, Map<String, dynamic> appointment, String appointmentId, ClinicAppointmentProvider provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('cancel_appointment'.tr()),
-        content: Text('are_you_sure_to_cancel_appointment'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('no'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('yes'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await provider.cancelAppointment(appointmentId, appointment);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('appointment_cancelled_success'.tr())),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
   }
 }

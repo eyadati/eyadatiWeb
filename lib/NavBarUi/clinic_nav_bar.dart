@@ -18,7 +18,7 @@ import 'dart:async';
 
 class CliniNavBarProvider extends ChangeNotifier {
   final String clinicUid;
-  String _selected = "1";
+  String _selected = '1';
   String get selected => _selected;
   List<QueryDocumentSnapshot> _notifications = [];
   List<QueryDocumentSnapshot> get notifications => _notifications;
@@ -35,28 +35,64 @@ class CliniNavBarProvider extends ChangeNotifier {
 
   CliniNavBarProvider(this.clinicUid) {
     _listenForNotifications(clinicUid);
-    _listenToClinicStream();
+    // Delay clinic stream initialization slightly for smaller devices
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!_isDisposed) _listenToClinicStream();
+    });
   }
 
+  static bool _isDisposed = false;
+
   void _listenToClinicStream() {
+    if (_isDisposed) return;
+    _clinicSubscription?.cancel();
     _clinicSubscription = AppStartupService().clinicStream.listen((clinic) {
       _clinic = clinic;
       if (_clinic != null) {
-        // Stop old fee listener if exists
         _feesSubscription?.cancel();
-        
-        // Start reactive fee counter
         _feesSubscription = PaymentService.listenAndSync(
           clinicUid: clinicUid,
           startDate: _clinic!.subscriptionStartDate,
           endDate: _clinic!.subscriptionEndDate,
         );
-        
         _syncAppointmentCountIfNeeded();
       }
       _isLoadingClinic = false;
       notifyListeners();
+    }, onError: (e) {
+      debugPrint('Clinic stream error: $e');
+      // Fallback: try direct fetch
+      _fallbackLoadClinic();
     });
+    
+    // Timeout fallback - if stream doesn't emit in 10 seconds, try direct fetch
+    Future.delayed(const Duration(seconds: 10), () {
+      if (_isLoadingClinic && _clinic == null) {
+        debugPrint('Clinic stream timeout - using fallback');
+        _fallbackLoadClinic();
+      }
+    });
+  }
+  
+  Future<void> _fallbackLoadClinic() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('clinics')
+          .doc(clinicUid)
+          .get();
+      if (doc.exists && doc.data() != null) {
+        _clinic = Clinic.fromMap(doc.data()!);
+        _feesSubscription = PaymentService.listenAndSync(
+          clinicUid: clinicUid,
+          startDate: _clinic!.subscriptionStartDate,
+          endDate: _clinic!.subscriptionEndDate,
+        );
+      }
+    } catch (e) {
+      debugPrint('Fallback clinic load error: $e');
+    }
+    _isLoadingClinic = false;
+    notifyListeners();
   }
 
   int _lastSyncedCount = -1;
@@ -98,6 +134,7 @@ class CliniNavBarProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _notifSubscription?.cancel();
     _clinicSubscription?.cancel();
     _feesSubscription?.cancel();
@@ -209,11 +246,11 @@ class _BottomNavContent extends StatelessWidget {
                 index: selectedIndex,
                 children: [
                   DeferredTab(
-                    id: "1",
+                    id: '1',
                     child: ClinicAppointments(clinicId: clinicUid),
                   ),
                   DeferredTab(
-                    id: "2",
+                    id: '2',
                     child: ManagementScreen(clinicUid: clinicUid),
                   ),
                 ],
@@ -229,8 +266,8 @@ class _BottomNavContent extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(context, LucideIcons.home, "home".tr(), "1"),
-            _buildNavItem(context, LucideIcons.calendar, "managment".tr(), "2"),
+            _buildNavItem(context, LucideIcons.home, 'home'.tr(), '1'),
+            _buildNavItem(context, LucideIcons.calendar, 'managment'.tr(), '2'),
           ],
         ),
       ),
@@ -348,7 +385,7 @@ class NotificationCenter extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            data['userName'] ?? 'unknown_patient'.tr(),
+                            data['patientName'] ?? 'unknown_patient'.tr(),
                             style: TextStyle(
                               fontWeight: isRead
                                   ? FontWeight.normal

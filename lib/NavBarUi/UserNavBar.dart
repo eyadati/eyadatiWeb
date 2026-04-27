@@ -1,12 +1,11 @@
 import 'package:eyadati/user/userAppointments.dart';
-import 'package:eyadati/user/userSettingsPage.dart';
-import 'package:eyadati/utils/connectivity_service.dart';
 import 'package:eyadati/user/userQrScannerPage.dart';
-import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart'; // flutter pub add flutter_floating_bottom_bar
+import 'package:eyadati/utils/connectivity_service.dart';
+import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:deferred_indexed_stack/deferred_indexed_stack.dart'; // flutter pub add deferred_indexed_stack
+import 'package:deferred_indexed_stack/deferred_indexed_stack.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:eyadati/utils/skeletons.dart';
 import 'package:eyadati/NavBarUi/user_nav_bar_provider.dart';
@@ -48,9 +47,8 @@ class _BottomNavContent extends StatelessWidget {
               child: DeferredIndexedStack(
                 index: selectedIndex,
                 children: [
-                  DeferredTab(id: "1", child: const UserAppointments()),
-                  DeferredTab(id: "2", child: const FavoritScreen()),
-                  DeferredTab(id: "3", child: const UserSettings()),
+                  DeferredTab(id: '1', child: const UserAppointments()),
+                  DeferredTab(id: '2', child: const FavoritScreen()),
                 ],
               ),
             ),
@@ -64,9 +62,8 @@ class _BottomNavContent extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(context, LucideIcons.home, "home".tr(), "1"),
-            _buildNavItem(context, LucideIcons.heart, "favorites".tr(), "2"),
-            _buildNavItem(context, LucideIcons.userCog, "settings".tr(), "3"),
+            _buildNavItem(context, LucideIcons.home, 'home'.tr(), '1'),
+            _buildNavItem(context, LucideIcons.heart, 'favorites'.tr(), '2'),
           ],
         ),
       ),
@@ -94,7 +91,11 @@ class _BottomNavContent extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              value == "1" ? LucideIcons.home : LucideIcons.heart,
+              value == '1'
+                  ? LucideIcons.home
+                  : value == '2'
+                  ? LucideIcons.heart
+                  : LucideIcons.mail,
               color: color,
               size: 26,
             ),
@@ -134,17 +135,15 @@ class FavoritScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset('assets/logo.png', height: 120),
-        centerTitle: true,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.qrCode),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const UserQrScannerPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const UserQrScannerPage()),
               );
             },
           ),
@@ -200,10 +199,7 @@ class FavoritScreen extends StatelessWidget {
                 }
                 final clinic = favClinics[index];
 
-                return ClinicCard(
-                  clinic: clinic,
-                  showFavoriteButton: true,
-                );
+                return ClinicCard(clinic: clinic, showFavoriteButton: true);
               },
             );
           },

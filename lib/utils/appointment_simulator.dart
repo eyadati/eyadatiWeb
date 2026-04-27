@@ -87,14 +87,14 @@ class AppointmentSimulator {
           'sim_${clinicUid}_${DateTime.now().millisecondsSinceEpoch}';
 
       final appointmentData = {
-        "clinicUid": clinicUid,
-        "userUid": "simulated_user",
-        "date": Timestamp.fromDate(targetSlot),
-        "userName": patientName,
-        "phone": patientPhone,
-        "createdAt": FieldValue.serverTimestamp(),
-        "isSimulated": true,
-        "isRead": false, // For notification center
+        'clinicUid': clinicUid,
+        'userUid': 'simulated_user',
+        'date': Timestamp.fromDate(targetSlot),
+        'userName': patientName,
+        'phone': patientPhone,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isSimulated': true,
+        'isRead': false, // For notification center
       };
 
       final batch = firestore.batch();

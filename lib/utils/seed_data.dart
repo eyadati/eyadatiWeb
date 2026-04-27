@@ -98,31 +98,31 @@ class DataSeeder {
       final geoFirePoint = GeoFirePoint(GeoPoint(lat, lon));
 
       final clinicData = {
-        "uid": clinicId,
-        "email": "doctor_${i}_tlemcen@eyadati.com",
-        "name": "Dr. $docName",
-        "clinicName": "Clinique $neighborhood ${specialty.tr()}",
-        "FCM": "",
-        "mapsLink": "https://www.google.com/maps/search/?api=1&query=$lat,$lon",
-        "workingDays": [1, 2, 3, 4, 7],
-        "subscriptionStartDate": DateTime.now(),
-        "subscriptionEndDate": DateTime.now().add(const Duration(days: 365)),
-        "paused": false,
-        "phone": "043${100000 + _random.nextInt(899999)}",
-        "address": "$neighborhood, Rue ${_random.nextInt(100) + 1}, Tlemcen",
-        "city": "Tlemcen",
+        'uid': clinicId,
+        'email': 'doctor_${i}_tlemcen@eyadati.com',
+        'name': 'Dr. $docName',
+        'clinicName': 'Clinique $neighborhood ${specialty.tr()}',
+        'FCM': '',
+        'mapsLink': 'https://www.google.com/maps/search/?api=1&query=$lat,$lon',
+        'workingDays': [1, 2, 3, 4, 7],
+        'subscriptionStartDate': DateTime.now(),
+        'subscriptionEndDate': DateTime.now().add(const Duration(days: 365)),
+        'paused': false,
+        'phone': '043${100000 + _random.nextInt(899999)}',
+        'address': '$neighborhood, Rue ${_random.nextInt(100) + 1}, Tlemcen',
+        'city': 'Tlemcen',
         'picUrl': avatarUrls[_random.nextInt(avatarUrls.length)],
-        "openingAt": 480,
+        'openingAt': 480,
         'closingAt': 1020,
         'breakStart': 720,
-        "breakEnd": 780,
-        "specialty": specialty, // Storing raw key
+        'breakEnd': 780,
+        'specialty': specialty, // Storing raw key
         'duration': 30,
         'staff': _random.nextInt(3) + 1,
-        "position": geoFirePoint.data,
+        'position': geoFirePoint.data,
       };
 
-      batch.set(firestore.collection("clinics").doc(clinicId), clinicData);
+      batch.set(firestore.collection('clinics').doc(clinicId), clinicData);
     }
 
     await batch.commit();
@@ -134,7 +134,7 @@ class DataSeeder {
     final firestore = FirebaseFirestore.instance;
     final specialties = AppConstants.specialties;
 
-    final snapshot = await firestore.collection("clinics").get();
+    final snapshot = await firestore.collection('clinics').get();
     final batch = firestore.batch();
     int count = 0;
 

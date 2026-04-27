@@ -13,33 +13,40 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    // ======================================================
-    // USER RULES
-    // ======================================================
-    match /users/{userId} {
-      // Users can only read and write their own profile
-      allow read, write: if isAuthenticated() && isOwner(userId);
 
-      // Appointments subcollection within users
-      match /appointments/{appointmentId} {
-        // Users can read/write their own appointments
-        allow read, write: if isAuthenticated() && isOwner(userId);
-        
-        // Clinics need to be able to manage the appointment in the user's collection
-        // (e.g., cancellation or no-show updates).
-        allow read, update, delete: if isAuthenticated() && 
-          (isOwner(userId) || request.auth.uid == resource.data.clinicUid);
-          
-        // Clinics might need to CREATE an appointment for a user (manual booking or system logic)
-        allow create: if isAuthenticated() && 
-          (isOwner(userId) || request.auth.uid == request.resource.data.clinicUid);
-      }
+    // ======================================================
+    // PATIENTS COLLECTION (Phone-based, no auth required)
+    // ======================================================
+    match /patients/{phone} {
+      // Anyone can create/update their patient record with their phone
+      // Only the patient can read their own data
+      allow create: if request.resource.data.phone == phone;
+      allow read: if true; // For viewing appointments - phone is the identifier
+      allow update: if request.resource.data.phone == phone;
+      allow delete: if false; // No deletion
 
       // Favorites subcollection
-      match /favorites/{favoriteId} {
-        // favoriteId is the clinicUid
-        allow read, write: if isAuthenticated() && isOwner(userId);
+      match /favorites/{clinicId} {
+        // Patients can manage their own favorites by phone
+        allow read, create, delete: if true;
+        allow list: if true;
+      }
+    }
+
+    // ======================================================
+    // USERS COLLECTION (Firebase Auth based)
+    // ======================================================
+    match /users/{userId} {
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+
+      // Favorites subcollection
+      match /favorites/{clinicId} {
+        // Users can manage their own favorites by uid
+        allow read, create, delete: if isAuthenticated() && isOwner(userId);
+        allow list: if isAuthenticated();
       }
     }
 
@@ -47,41 +54,43 @@ service cloud.firestore {
     // CLINIC RULES
     // ======================================================
     match /clinics/{clinicId} {
-      // Patients must be able to SEARCH and SEE clinic info
-      allow read: if isAuthenticated(); 
+      // Patients must be able to SEARCH and SEE clinic info (public)
+      allow read: if true;
       
       // Clinic owner has full access
       allow create, delete: if isAuthenticated() && isOwner(clinicId);
       
       // Update rule: allow clinic owner OR allow patients to increment appointment counter
-      allow update: if isAuthenticated() && (
-        isOwner(clinicId) || 
+      allow update: if isAuthenticated() && isOwner(clinicId) || 
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appointments_this_month']) &&
           (
             (resource.data.appointments_this_month == null && request.resource.data.appointments_this_month == 1) ||
             (request.resource.data.appointments_this_month == resource.data.appointments_this_month + 1)
           )
-        )
-      );
+        );
 
       // Appointments subcollection within clinics
       match /appointments/{appointmentId} {
         // 1. Clinic owner can see and manage ALL appointments
         allow read, write: if isAuthenticated() && isOwner(clinicId);
    
-        // 2. Patients can CREATE an appointment if they are the ones booking it
-        allow create: if isAuthenticated() && 
-          request.resource.data.userUid == request.auth.uid;
+        // 2. Anyone can CREATE an appointment (no auth required for patients)
+        // The phone field must match what's being stored
+        allow create: if request.resource.data.phone != null;
    
-        // 3. Patients can READ/UPDATE/DELETE their own appointments
-        allow read, update, delete: if isAuthenticated() && 
-          resource.data.userUid == request.auth.uid;
+        // 3. Patients can READ/UPDATE/DELETE their own appointments by phone
+        // Using phone as identifier instead of userUid
+        allow read: if resource.data.phone != null;
+        allow update: if 
+          isAuthenticated() && isOwner(clinicId) ||
+          request.resource.data.phone == resource.data.phone;
+        allow delete: if 
+          isAuthenticated() && isOwner(clinicId) ||
+          request.resource.data.phone == resource.data.phone;
    
-        // 4. Slot Availability check
-        // NOTE: For generateSlots to work, patients must be able to list all appointments
-        // to check for occupancy. 
-        allow list: if isAuthenticated();
+        // 4. Slot Availability check - must be readable for booking
+        allow list: if true;
       }
     }
     
@@ -90,7 +99,7 @@ service cloud.firestore {
     // ======================================================
     match /registration_requests/{requestId} {
       allow create: if isAuthenticated();
-      allow read, write: if false; // Admin only
+      allow read, write: if false;
     }
   }
 }

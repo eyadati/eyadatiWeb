@@ -50,12 +50,12 @@ class BookingLogic extends ChangeNotifier {
 
       // Fetch ALL appointments for the day in a single query
       final dayAppointments = await firestore
-          .collection("clinics")
+          .collection('clinics')
           .doc(clinicUid)
-          .collection("appointments")
-          .where("date", isGreaterThanOrEqualTo: Timestamp.fromDate(localDay))
+          .collection('appointments')
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(localDay))
           .where(
-            "date",
+            'date',
             isLessThan: Timestamp.fromDate(localDay.add(const Duration(days: 1))),
           )
           .get();
@@ -64,7 +64,7 @@ class BookingLogic extends ChangeNotifier {
       final bookedSlots = <DateTime, int>{};
       for (var doc in dayAppointments.docs) {
         final data = doc.data();
-        final appointmentTime = Clinic.parseDateTime(data["date"]);
+        final appointmentTime = Clinic.parseDateTime(data['date']);
         // Normalize to local for slot key
         final slotKey = DateTime(
           appointmentTime.year,
@@ -112,7 +112,7 @@ class BookingLogic extends ChangeNotifier {
 
       return availableSlots;
     } catch (e) {
-      debugPrint("error_generic".tr(args: [e.toString()]));
+      debugPrint('error_generic'.tr(args: [e.toString()]));
       return [];
     }
   }
@@ -123,7 +123,7 @@ class BookingLogic extends ChangeNotifier {
       return _clinicCache[clinicUid];
     }
 
-    final doc = await firestore.collection("clinics").doc(clinicUid).get();
+    final doc = await firestore.collection('clinics').doc(clinicUid).get();
     if (doc.exists && doc.data() != null) {
       final clinic = Clinic.fromMap(doc.data()!);
       _clinicCache[clinicUid] = clinic;
